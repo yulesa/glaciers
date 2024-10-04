@@ -1092,6 +1092,7 @@ dependencies = [
  "alloy",
  "polars",
  "serde_json",
+ "thiserror",
 ]
 
 [[package]]
