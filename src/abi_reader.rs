@@ -1,5 +1,5 @@
-use std::{fs, str::FromStr};
-use alloy::{json_abi::{Event, JsonAbi}, primitives::{Address, B256}};
+use std::{fs::{self, File}, str::FromStr};
+use alloy::{json_abi::JsonAbi, primitives::{Address, B256}};
 use polars::prelude::*;
 
 #[derive(Debug)]
@@ -7,15 +7,19 @@ pub struct EventRow {
     address: Address,
     topic0: B256,
     signature: String,
-    full_signature: String,
+    pub full_signature: String,
     abi_item: String,
     name: String,
     anonymous: bool,
     id: String,
-    pub event_struct: Event
 }
 
-pub fn read_json_abi() -> Vec<EventRow>{
+pub fn read_abis() -> DataFrame {
+
+
+}
+
+pub fn read_new_abi_files() -> Vec<EventRow>{
     // Define the path to the directory containing the ABI JSON files.
     let abis_path = "./ABIs";
     let mut event_list: Vec<EventRow> = vec![];
@@ -44,8 +48,7 @@ pub fn read_json_abi() -> Vec<EventRow>{
                     abi_item: format!("{:?}", event),
                     name: event.name.to_string(),
                     anonymous: event.anonymous,
-                    id: event.selector().to_string() + &event.signature()[..],
-                    event_struct: event.clone()
+                    id: event.selector().to_string() + &event.signature()[..]
                 };
                 event_list.push(row);
             } 
@@ -58,8 +61,8 @@ pub fn read_json_abi() -> Vec<EventRow>{
 }
 
 pub fn create_dataframe_from_event_rows(rows: Vec<EventRow>) -> PolarsResult<DataFrame> {
-    let address = Series::new("Address", rows.iter().map(|r| r.address.to_string()).collect::<Vec<String>>());
-    let topic0 = Series::new("topic0", rows.iter().map(|r| r.topic0.to_string()).collect::<Vec<String>>());
+    let address = Series::new("Address", rows.iter().map(|r| r.address.as_slice()).collect::<Vec<_>>());
+    let topic0 = Series::new("topic0", rows.iter().map(|r| r.topic0.as_slice()).collect::<Vec<&[u8]>>());
     let signature = Series::new("signature", rows.iter().map(|r| r.signature.clone()).collect::<Vec<String>>());
     let full_signature = Series::new("full_signature", rows.iter().map(|r| r.full_signature.clone()).collect::<Vec<String>>());
     let abi_item = Series::new("abi_item", rows.iter().map(|r| format!("{:?}", r.abi_item)).collect::<Vec<String>>());
@@ -67,5 +70,9 @@ pub fn create_dataframe_from_event_rows(rows: Vec<EventRow>) -> PolarsResult<Dat
     let anonymous = Series::new("anonymous", rows.iter().map(|r| r.anonymous).collect::<Vec<bool>>());
     let id = Series::new("id", rows.iter().map(|r| r.id.clone()).collect::<Vec<String>>());
 
-    DataFrame::new(vec![address, topic0, signature, full_signature, abi_item, name, anonymous, id])
+    let mut abi_df = DataFrame::new(vec![address, topic0, signature, full_signature, abi_item, name, anonymous, id])?;
+    let mut file = File::create("ABIs/ethereum__abis.parquet")?;
+    ParquetWriter::new(&mut file).finish(&mut abi_df).unwrap();
+    
+    Ok(abi_df)
 }

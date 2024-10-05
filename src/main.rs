@@ -16,10 +16,19 @@ enum AppError {
 }
 
 fn main() -> Result<(), AppError> {
+    let abi_list = abi_reader::read_abis();
+
+    create_dataframe_from_event_rows(abi_list)?;
+    Ok(())
+
+}
+
+fn old_main() -> Result<(), AppError> {
     let abi_list = abi_reader::read_json_abi();
-    let approval_event: Event = abi_list.first()
-        .ok_or_else(|| AppError::DataFrameError("ABI list is empty".to_string()))?
-        .event_struct.clone();
+    let approval_event = abi_list.first()
+        .ok_or_else(|| AppError::DataFrameError("ABI list is empty".to_string()))?;
+    let approval_event = Event::parse(approval_event.full_signature.as_str())
+        .map_err(|e| AppError::DecodingError(e.to_string()))?;
 
     let ethereum_logs_df = load_ethereum_logs()?;
     let (topics, data) = extract_log_data(&ethereum_logs_df, 7)?;
@@ -42,8 +51,6 @@ fn extract_log_data(df: &DataFrame, row_index: usize) -> Result<(Vec<FixedBytes<
     let row = binding
         .get(row_index)
         .ok_or_else(|| AppError::DataFrameError("Row index out of bounds".to_string()))?;
-    
-    println!("Row: {:#?}", row);
 
     let topics = row.iter()
     .take(4)
