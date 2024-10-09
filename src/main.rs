@@ -16,29 +16,30 @@ enum AppError {
 }
 
 fn main() -> Result<(), AppError> {
-    let abi_list = abi_reader::read_abis();
-
-    create_dataframe_from_event_rows(abi_list)?;
-    Ok(())
-
-}
-
-fn old_main() -> Result<(), AppError> {
-    let abi_list = abi_reader::read_json_abi();
-    let approval_event = abi_list.first()
-        .ok_or_else(|| AppError::DataFrameError("ABI list is empty".to_string()))?;
-    let approval_event = Event::parse(approval_event.full_signature.as_str())
-        .map_err(|e| AppError::DecodingError(e.to_string()))?;
-
+    let abi_list_df = abi_reader::read_abis()?;
     let ethereum_logs_df = load_ethereum_logs()?;
-    let (topics, data) = extract_log_data(&ethereum_logs_df, 7)?;
-
-    let decoded_log = approval_event.decode_log_parts(topics, &data, false)
-        .map_err(|e| AppError::DecodingError(e.to_string()))?;
     
-    println!("Decoded log: {:#?}", decoded_log);
+
     Ok(())
+
 }
+
+// fn old_main() -> Result<(), AppError> {
+//     let abi_list = abi_reader::read_abis();
+//     let approval_event = abi_list.first()
+//         .ok_or_else(|| AppError::DataFrameError("ABI list is empty".to_string()))?;
+//     let approval_event = Event::parse(approval_event.full_signature.as_str())
+//         .map_err(|e| AppError::DecodingError(e.to_string()))?;
+
+//     let ethereum_logs_df = load_ethereum_logs()?;
+//     let (topics, data) = extract_log_data(&ethereum_logs_df, 7)?;
+
+    // let decoded_log = approval_event.decode_log_parts(topics, &data, false)
+//         .map_err(|e| AppError::DecodingError(e.to_string()))?;
+    
+//     println!("Decoded log: {:#?}", decoded_log);
+//     Ok(())
+// }
 
 fn load_ethereum_logs() -> Result<DataFrame, AppError> {
     LazyFrame::scan_parquet("data/ethereum__logs__*.parquet", Default::default())?

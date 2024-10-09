@@ -1,4 +1,4 @@
-use std::{fs::{self, File}, str::FromStr};
+use std::{fs::{self, File}, str::FromStr, path::Path};
 use alloy::{json_abi::JsonAbi, primitives::{Address, B256}};
 use polars::prelude::*;
 
@@ -14,65 +14,89 @@ pub struct EventRow {
     id: String,
 }
 
-pub fn read_abis() -> DataFrame {
+pub fn read_abis() -> PolarsResult<DataFrame> {
+    let path = Path::new("ABIs/ethereum__abis.parquet");
+    let existing_df = if path.exists() {
+        read_parquet_file(path)?
+    } else {
+        DataFrame::default()
+    };
 
+    let new_rows = read_new_abi_files();
+    let new_df = create_dataframe_from_event_rows(new_rows)?;
+    let mut combined_df = concat_dataframes(vec![existing_df.lazy(), new_df.lazy()])?;
+    let mut file = File::create(path)?;
+    ParquetWriter::new(&mut file).finish(&mut combined_df)?;
 
+    Ok(combined_df)
 }
 
-pub fn read_new_abi_files() -> Vec<EventRow>{
-    // Define the path to the directory containing the ABI JSON files.
+fn read_parquet_file(path: &Path) -> PolarsResult<DataFrame> {
+    ParquetReader::new(File::open(path)?).finish()
+}
+
+pub fn read_new_abi_files() -> Vec<EventRow> {
     let abis_path = "./ABIs";
-    let mut event_list: Vec<EventRow> = vec![];
+    fs::read_dir(abis_path)
+        .unwrap_or_else(|_| panic!("Unable to read directory {}", abis_path))
+        .filter_map(|entry| process_abi_file(entry.expect("Unable to read file").path()))
+        .flatten()
+        .collect()
+}
 
-    // Iterate over each file in the directory.
-    for entry in fs::read_dir(abis_path).unwrap_or_else(|_| panic!("Unable to read directory {}", abis_path)) {
-        let entry = entry.expect("Unable to read file");
-        let path = entry.path();
-        // Ensure the file has a .json extension and the file name can be parsed as an Address.
-        let address = path.extension().and_then(|s| s.to_str()).filter(|&ext| ext == "json")
-            .and_then(|_| path.file_stem())
-            .and_then(|s| s.to_str())
-            .and_then(|str| Address::from_str(str).ok());
-
-        if let Some(address) = address {
-        // All conditions are met, and 'address' is now available for use
+fn process_abi_file(path: std::path::PathBuf) -> Option<Vec<EventRow>> {
+    let address = extract_address_from_path(&path);
+    if let Some(address) = address {
             println!("Reading file: {:?}", path);
-            let json = std::fs::read_to_string(path).unwrap();
-            let abi: JsonAbi = serde_json::from_str(&json).unwrap();
-            for event in abi.events() {
-                let row = EventRow {
-                    address: address,
-                    topic0: event.selector(),
-                    signature: event.signature(),
-                    full_signature: event.full_signature(),
-                    abi_item: format!("{:?}", event),
-                    name: event.name.to_string(),
-                    anonymous: event.anonymous,
-                    id: event.selector().to_string() + &event.signature()[..]
-                };
-                event_list.push(row);
-            } 
+            let json = fs::read_to_string(&path).ok()?;
+            let abi: JsonAbi = serde_json::from_str(&json).ok()?;
+            Some(abi.events().map(|event| create_event_row(address, event)).collect())
         } else {
-            //skip file if it's not a .json or couldn't be parsed into an address
+            //skip file if it's not a .json or couldn't be parsed into an address by the extract_address_from_path function
             println!("Skipping file: {:?}", path);
+            None
         }
-    }
-    return event_list
+}
+
+fn extract_address_from_path(path: &std::path::Path) -> Option<Address> {
+    path.extension().and_then(|s| s.to_str()).filter(|&ext| ext == "json")
+        .and_then(|_| path.file_stem())
+        .and_then(|s| s.to_str())
+        .and_then(|str| Address::from_str(str).ok())
+}
+
+fn create_event_row(address: Address, event: &alloy::json_abi::Event) -> EventRow {
+    let event_row = EventRow {
+        address,
+        topic0: event.selector(),
+        signature: event.signature(),
+        full_signature: event.full_signature(),
+        abi_item: format!("{:?}", event),
+        name: event.name.to_string(),
+        anonymous: event.anonymous,
+        id: event.selector().to_string() + &event.signature()[..],
+    };
+    println!("\tEventRow: {:?}, {:?}", event_row.signature, event_row.topic0);
+    event_row
 }
 
 pub fn create_dataframe_from_event_rows(rows: Vec<EventRow>) -> PolarsResult<DataFrame> {
-    let address = Series::new("Address", rows.iter().map(|r| r.address.as_slice()).collect::<Vec<_>>());
-    let topic0 = Series::new("topic0", rows.iter().map(|r| r.topic0.as_slice()).collect::<Vec<&[u8]>>());
-    let signature = Series::new("signature", rows.iter().map(|r| r.signature.clone()).collect::<Vec<String>>());
-    let full_signature = Series::new("full_signature", rows.iter().map(|r| r.full_signature.clone()).collect::<Vec<String>>());
-    let abi_item = Series::new("abi_item", rows.iter().map(|r| format!("{:?}", r.abi_item)).collect::<Vec<String>>());
-    let name = Series::new("name", rows.iter().map(|r| r.name.clone()).collect::<Vec<String>>());
-    let anonymous = Series::new("anonymous", rows.iter().map(|r| r.anonymous).collect::<Vec<bool>>());
-    let id = Series::new("id", rows.iter().map(|r| r.id.clone()).collect::<Vec<String>>());
+    let columns = vec![
+        Series::new("Address", rows.iter().map(|r| r.address.as_slice()).collect::<Vec<_>>()),
+        Series::new("topic0", rows.iter().map(|r| r.topic0.as_slice()).collect::<Vec<&[u8]>>()),
+        Series::new("signature", rows.iter().map(|r| r.signature.clone()).collect::<Vec<String>>()),
+        Series::new("full_signature", rows.iter().map(|r| r.full_signature.clone()).collect::<Vec<String>>()),
+        Series::new("abi_item", rows.iter().map(|r| r.abi_item.clone()).collect::<Vec<String>>()),
+        Series::new("name", rows.iter().map(|r| r.name.clone()).collect::<Vec<String>>()),
+        Series::new("anonymous", rows.iter().map(|r| r.anonymous).collect::<Vec<bool>>()),
+        Series::new("id", rows.iter().map(|r| r.id.clone()).collect::<Vec<String>>()),
+    ];
 
-    let mut abi_df = DataFrame::new(vec![address, topic0, signature, full_signature, abi_item, name, anonymous, id])?;
-    let mut file = File::create("ABIs/ethereum__abis.parquet")?;
-    ParquetWriter::new(&mut file).finish(&mut abi_df).unwrap();
-    
-    Ok(abi_df)
+    DataFrame::new(columns)
+}
+
+fn concat_dataframes(dfs: Vec<LazyFrame>) -> PolarsResult<DataFrame> {
+    let df = concat(dfs, UnionArgs::default())?;
+    let df = df.unique(Some(vec!["id".to_string()]), UniqueKeepStrategy::First).collect();
+    df
 }
