@@ -6,5 +6,5 @@ edition = "2021"
 [dependencies]
 alloy = { version = "0.2.0", features = ["json-abi", "dyn-abi"] }
 serde_json = "1.0.128"
-polars = { version = "0.41.0", features = ["lazy", "parquet"]}
+polars = { version = "0.41.0", features = ["lazy", "parquet", "dtype-struct"]}
 thiserror = "1.0.50"
