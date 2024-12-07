@@ -29,7 +29,7 @@ fn main() -> Result<(), AppError> {
         )
         .collect()?;
 
-    println!("Joined DataFrame Schema: {:?}", &logs_left_join_abi_df.schema());
+    // println!("Joined DataFrame {:?}", &logs_left_join_abi_df.schema());
 
     let decoded_df = decode_logs(logs_left_join_abi_df)?;
 
@@ -39,7 +39,6 @@ fn main() -> Result<(), AppError> {
 
     Ok(())
 }
-
 
 fn load_ethereum_logs() -> Result<DataFrame, AppError> {
     LazyFrame::scan_parquet("data/ethereum__logs__*.parquet", ScanArgsParquet::default())?
