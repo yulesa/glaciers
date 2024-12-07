@@ -141,9 +141,7 @@ fn extract_log_fields(fields: &[Series]) -> PolarsResult<Vec<(Vec<FixedBytes<32>
 fn decode(full_signature: &str, topics: Vec<FixedBytes<32>>, data: &[u8]) -> Result<ExtendedDecodedEvent, DecodeError> {
     let event = parse_event_signature(full_signature)?;
     let decoded_event = decode_event_log(&event, topics, data)?;
-    
     let params = extract_event_params(&event, &decoded_event)?;
-
     let params_keys_mapping: Vec<String> = params.iter().map(|p| p.name.clone()).collect();
     let params_mapping = serde_json::to_string(&params).unwrap_or_else(|_| "[]".to_string());
     
