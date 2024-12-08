@@ -14,27 +14,24 @@ pub enum DecodeError {
 }
 
 #[derive(Debug, Serialize)]
-struct EventParam  {
+struct StructuredEventParam  {
     name: String,
     index: u32,
     value_type: String,
     value: String,
 }
 
-struct ExtendedDecodedEvent {
-     /// The indexed values, in order.
-     pub indexed: Vec<DynSolValue>,
-     /// The un-indexed values, in order.
-     pub body: Vec<DynSolValue>,
-     pub params_keys_mapping: Vec<String>,
-     pub params_mapping: String
+struct ExtDecodedEvent {
+    event_values: Vec<DynSolValue>,
+    event_keys: Vec<String>,
+    event_json: String
 }
 
-//Wrapper type around DynSolValue, to implement a conversion to String function.
+//Wrapper type around DynSolValue, to implement to_string function.
 struct StringifiedValue(DynSolValue);
 
 impl StringifiedValue {
-    pub fn convert(&self) -> Option<String> {
+    pub fn to_string(&self) -> Option<String> {
         match &self.0 {
             DynSolValue::Bool(b) => Some(b.to_string()),
             DynSolValue::Int(i, _) => Some(i.to_string()),
@@ -47,21 +44,21 @@ impl StringifiedValue {
             DynSolValue::Array(arr) => Some(format!(
                 "[{}]", 
                 arr.iter()
-                    .filter_map(|v| Self::from(v.clone()).convert())
+                    .filter_map(|v| Self::from(v.clone()).to_string())
                     .collect::<Vec<_>>()
                     .join(", ")
             )),
             DynSolValue::FixedArray(arr) => Some(format!(
                 "[{}]", 
                 arr.iter()
-                    .filter_map(|v| Self::from(v.clone()).convert())
+                    .filter_map(|v| Self::from(v.clone()).to_string())
                     .collect::<Vec<_>>()
                     .join(", ")
             )),
             DynSolValue::Tuple(tuple) => Some(format!(
                 "({})", 
                 tuple.iter()
-                    .filter_map(|v| Self::from(v.clone()).convert())
+                    .filter_map(|v| Self::from(v.clone()).to_string())
                     .collect::<Vec<_>>()
                     .join(", ")
             ))
@@ -79,14 +76,40 @@ pub fn decode_logs(df: DataFrame) -> Result<DataFrame, DecodeError> {
     df.lazy()
         .with_columns([
             as_struct(vec![col("topic0"), col("topic1"), col("topic2"), col("topic3"), col("data"), col("full_signature")])
-                .map(decode_log_batch, GetOutput::from_type(DataType::String))
+                .map(decode_log_udf, GetOutput::from_type(DataType::String))
                 .alias("decoded_log"),
         ])
+        .with_columns([
+            col("decoded_log")
+            .str()
+            .split(lit(";"))
+            .list()
+            .get(lit(0), false)
+            .alias("event_values")
+        ])
+        .with_columns([
+            col("decoded_log")
+            .str()
+            .split(lit(";"))
+            .list()
+            .get(lit(1), false)
+            .alias("event_keys")
+        ])
+        .with_columns([
+            col("decoded_log")
+            .str()
+            .split(lit(";"))
+            .list()
+            .get(lit(2), false)
+            .alias("event_json")
+        ])
+        // Remove the original decoded_log column
+        .drop(vec!["decoded_log"])
         .collect()
         .map_err(DecodeError::from)
 }
 
-fn decode_log_batch(s: Series) -> PolarsResult<Option<Series>> {
+fn decode_log_udf(s: Series) -> PolarsResult<Option<Series>> {
     let series_struct_array: &StructChunked = s.struct_()?;
     let fields = series_struct_array.fields();
     
@@ -96,12 +119,10 @@ fn decode_log_batch(s: Series) -> PolarsResult<Option<Series>> {
         .into_iter()
         .map(|(topics, data, sig)| {
             decode(sig, topics, data)
-                .map(|decoded_log| format!("{:?}, {:?}, {:?}, {}", decoded_log.indexed, decoded_log.body, decoded_log.params_keys_mapping, decoded_log.params_mapping))
+                .map(|event| format!("{:?}; {:?}; {}", event.event_values, event.event_keys, event.event_json))
                 .ok()
         })
         .collect();
-
-    println!("Decoded log: {:?}", out.clone().into_series());
 
     Ok(Some(out.into_series()))
 }
@@ -138,18 +159,20 @@ fn extract_log_fields(fields: &[Series]) -> PolarsResult<Vec<(Vec<FixedBytes<32>
         .collect()
 }
 
-fn decode(full_signature: &str, topics: Vec<FixedBytes<32>>, data: &[u8]) -> Result<ExtendedDecodedEvent, DecodeError> {
-    let event = parse_event_signature(full_signature)?;
-    let decoded_event = decode_event_log(&event, topics, data)?;
-    let params = extract_event_params(&event, &decoded_event)?;
-    let params_keys_mapping: Vec<String> = params.iter().map(|p| p.name.clone()).collect();
-    let params_mapping = serde_json::to_string(&params).unwrap_or_else(|_| "[]".to_string());
+fn decode(full_signature: &str, topics: Vec<FixedBytes<32>>, data: &[u8]) -> Result<ExtDecodedEvent, DecodeError> {
+    let event_sig = parse_event_signature(full_signature)?;
+    let decoded_event = decode_event_log(&event_sig, topics, data)?;
+    let mut event_values: Vec<DynSolValue> = decoded_event.indexed.clone();
+    event_values.extend(decoded_event.body.clone());
+
+    let structured_event = map_event_sig_and_values(&event_sig, &event_values)?;
+    let event_keys: Vec<String> = structured_event.iter().map(|p| p.name.clone()).collect();
+    let event_json = serde_json::to_string(&structured_event).unwrap_or_else(|_| "[]".to_string());
     
-    let extended_decoded_event = ExtendedDecodedEvent {
-        indexed: decoded_event.indexed,
-        body: decoded_event.body,
-        params_keys_mapping,
-        params_mapping
+    let extended_decoded_event = ExtDecodedEvent {
+        event_values,
+        event_keys,
+        event_json
     };
     
     Ok(extended_decoded_event)
@@ -165,27 +188,24 @@ fn decode_event_log(event: &Event, topics: Vec<FixedBytes<32>>, data: &[u8]) -> 
         .map_err(|e| DecodeError::DecodingError(e.to_string()))
 }
 
-fn extract_event_params(event: &Event, decoded_event: &DecodedEvent) -> Result<Vec<EventParam>, DecodeError> {
-    let mut params_values: Vec<DynSolValue> = decoded_event.indexed.clone();
-    params_values.extend(decoded_event.body.clone());
-
-    if params_values.len() != event.inputs.len() {
+fn map_event_sig_and_values(event_sig: &Event, event_values: &Vec<DynSolValue>) -> Result<Vec<StructuredEventParam>, DecodeError> {
+    if event_values.len() != event_sig.inputs.len() {
         return Err(DecodeError::DecodingError(
             "Mismatch between signature length and returned params length".to_string()
         ));
     }
 
-    let mut params = Vec::new();
-    for (i, input) in event.inputs.iter().enumerate() {
-        let str_value = StringifiedValue::from(params_values[i].clone());
-        let param = EventParam {
+    let mut structured_event: Vec<StructuredEventParam> = Vec::new();
+    for (i, input) in event_sig.inputs.iter().enumerate() {
+        let str_value = StringifiedValue::from(event_values[i].clone());
+        let event_param = StructuredEventParam {
             name: input.name.clone(),
             index: i as u32,
             value_type: input.ty.to_string(),
-            value: str_value.convert().unwrap_or_else(|| "None".to_string()),
+            value: str_value.to_string().unwrap_or_else(|| "None".to_string()),
         };
-        params.push(param);
+        structured_event.push(event_param);
     }
 
-    Ok(params)
+    Ok(structured_event)
 }
