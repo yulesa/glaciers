@@ -33,7 +33,7 @@ fn read_parquet_file(path: &Path) -> PolarsResult<DataFrame> {
 }
 
 pub fn read_new_abi_files() -> Vec<EventRow> {
-    let abis_path = "./ABIs";
+    let abis_path = "./ABIs/abi_database";
     fs::read_dir(abis_path)
         .unwrap_or_else(|_| panic!("Unable to read directory {}", abis_path))
         .filter_map(|entry| process_abi_file(entry.expect("Unable to read file").path()))

@@ -6,13 +6,13 @@ use alloy::primitives::FixedBytes;
 use polars::prelude::*;
 use thiserror::Error;
 use serde::Serialize;
-use sysinfo::System;
-use tokio::sync::{mpsc, Semaphore};
+use tokio::sync::{mpsc, Mutex, Semaphore};
 use tokio::task;
+use chrono::Local;
 
 const DECODED_CHUCK_SIZE: usize = 500_000;
 const MAX_THREAD_NUMBER: usize = 16;
-const DECODED_PATH: &str = "data/decoded/ethereum__decoded_logs__";
+const DECODED_PATH: &str = "data/ethereum__decoded_logs__18426253_to_18436252.parquet";
 
 #[derive(Error, Debug)]
 pub enum DecodeError {
@@ -23,7 +23,7 @@ pub enum DecodeError {
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
     #[error("Join error: {0}")]
-    JoinError(#[from] tokio::task::JoinError),
+    JoinError(#[from] tokio::task::JoinError)
 }
 
 #[derive(Debug, Serialize)]
@@ -88,34 +88,38 @@ impl From<DynSolValue> for StringifiedValue {
 pub async  fn decode_logs(df: DataFrame) -> Result<(), DecodeError> {
     // Create a semaphore with 4 permits
     let semaphore = Arc::new(Semaphore::new(MAX_THREAD_NUMBER));
-    let (tx, mut rx) = mpsc::channel(10); // Adjust buffer size as needed
+    let (tx, mut rx) = mpsc::channel(10);
     let total_height = df.height();
+    
+    // Shared vector to collect DataFrame chunks
+    let collected_dfs = Arc::new(Mutex::new(Vec::new()));
+
     let mut handles = Vec::new();
 
-    //break the logs into chunks of DECODEDCHUCKSIZE
     let mut i = 0;
     while i < total_height {
         let end = (i + DECODED_CHUCK_SIZE).min(total_height);
         let chunk = df.slice(i as i64, end - i);
         
-        // Clone the semaphore and transmitter for the task
         let sem_clone = semaphore.clone();
         let tx_clone = tx.clone();
 
+        let collected_dfs_clone = collected_dfs.clone();
         let handle = task::spawn(async move {
-            // Acquire a permit from the semaphore
-            let _permit = sem_clone.acquire().await.unwrap();
+            let collected_dfs = collected_dfs_clone;
+            let _permit = sem_clone.acquire().await;
 
-            // Run the blocking operation
-            match polars_decode_logs(chunk, i, end) {
-                Ok(_) => {
+            match polars_decode_logs(chunk) {
+                Ok(decoded_chunk) => {
+                    let mut dfs = collected_dfs.lock().await;
+                    dfs.push(decoded_chunk);
+                    
                     tx_clone.send(Ok((i, end))).await.expect("Failed to send result");
                 },
                 Err(e) => {
                     tx_clone.send(Err(e)).await.expect("Failed to send error");
                 }
             }
-
             // Permit is automatically released when _permit goes out of scope
         });
 
@@ -130,12 +134,11 @@ pub async  fn decode_logs(df: DataFrame) -> Result<(), DecodeError> {
     while let Some(result) = rx.recv().await {
         match result {
             Ok((start, end)) => {
-                println!("[{}] Finished decoding chunk: {} to {}", 
-                    chrono::Local::now().format("%Y-%m-%d %H:%M:%S"), 
+                println!("[{}] Decoded chunk: {} to {}", 
+                    Local::now().format("%Y-%m-%d %H:%M:%S"), 
                     start, 
                     end
                 );
-                print_system_memory();
             }
             Err(e) => return Err(e),
         }
@@ -145,16 +148,18 @@ pub async  fn decode_logs(df: DataFrame) -> Result<(), DecodeError> {
     for handle in handles {
         handle.await?;
     }
+    
+    let collected_dfs_2 = collected_dfs.lock().await.clone();
+    
+    // Concatenate and save the final DataFrame
+    let final_df = union_dataframes(collected_dfs_2).await?;
+    save_decoded_logs(final_df, DECODED_PATH)?;
 
     Ok(())
 }
 
-fn polars_decode_logs(df: DataFrame, i: usize, end: usize) -> Result<(), DecodeError> {
-    println!("[{}] Start decoding chunk: {} to {}", 
-        chrono::Local::now().format("%Y-%m-%d %H:%M:%S"), 
-        i, 
-        end
-    );
+// Modify polars_decode_logs to return the DataFrame instead of saving it
+fn polars_decode_logs(df: DataFrame) -> Result<DataFrame, DecodeError> {
     let decoded_chuck_df = df.lazy()
     //apply decode_log_udf
         .with_columns([
@@ -191,10 +196,23 @@ fn polars_decode_logs(df: DataFrame, i: usize, end: usize) -> Result<(), DecodeE
         .drop(vec!["decoded_log"])
         .collect()?;
 
-    //save the decoded logs to parquet 
-    save_decoded_logs(decoded_chuck_df, &format!("{}{}_to_{}.parquet", DECODED_PATH, i, end))?;
-    Ok(())
+    Ok(decoded_chuck_df)
+}
 
+// Helper function to union DataFrames
+async fn union_dataframes(dfs: Vec<DataFrame>) -> Result<DataFrame, DecodeError> {
+    // If only one DataFrame, return it directly
+    if dfs.len() == 1 {
+        return Ok(dfs[0].clone());
+    }
+
+    // Use Polars' vertical concatenation with union semantics
+    let lazy_dfs: Vec<LazyFrame> = dfs.into_iter().map(
+        |df| df.lazy()
+    ).collect();
+    let unioned_df = concat(&lazy_dfs, UnionArgs::default())?.collect()?;
+
+    Ok(unioned_df)
 }
 
 fn decode_log_udf(s: Series) -> PolarsResult<Option<Series>> {
@@ -295,12 +313,6 @@ fn map_event_sig_and_values(event_sig: &Event, event_values: &Vec<DynSolValue>) 
     }
 
     Ok(structured_event)
-}
-
-fn print_system_memory() {
-    let sys = System::new_all(); 
-    println!("total memory: {} bytes", sys.total_memory());
-    println!("used memory : {} bytes", sys.used_memory());
 }
 
 fn save_decoded_logs(mut df: DataFrame, path: &str) -> Result<(), DecodeError> {
