@@ -77,9 +77,7 @@ fn create_event_row(event: &alloy::json_abi::Event) -> EventRow {
 pub fn create_dataframe_from_event_rows(rows: Vec<EventRow>) -> PolarsResult<DataFrame> {
     let columns = vec![
         Series::new("topic0", rows.iter().map(|r| r.topic0.as_slice()).collect::<Vec<&[u8]>>()),
-        // Series::new("signature", rows.iter().map(|r| r.signature.clone()).collect::<Vec<String>>()),
         Series::new("full_signature", rows.iter().map(|r| r.full_signature.clone()).collect::<Vec<String>>()),
-        // Series::new("abi_item", rows.iter().map(|r| r.abi_item.clone()).collect::<Vec<String>>()),
         Series::new("name", rows.iter().map(|r| r.name.clone()).collect::<Vec<String>>()),
         Series::new("anonymous", rows.iter().map(|r| r.anonymous).collect::<Vec<bool>>()),
         Series::new("id", rows.iter().map(|r| r.id.clone()).collect::<Vec<String>>()),

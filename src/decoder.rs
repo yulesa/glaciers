@@ -7,10 +7,12 @@ use polars::prelude::*;
 use thiserror::Error;
 use serde::Serialize;
 use sysinfo::System;
-use chrono::Local;
+use tokio::sync::{mpsc, Semaphore};
+use tokio::task;
 
-const DECODEDCHUCKSIZE: usize = 200_000;
-const DECODEDTEMPPATH: &str = "data/decoded/ethereum__decoded_logs__";
+const DECODED_CHUCK_SIZE: usize = 500_000;
+const MAX_THREAD_NUMBER: usize = 16;
+const DECODED_PATH: &str = "data/decoded/ethereum__decoded_logs__";
 
 #[derive(Error, Debug)]
 pub enum DecodeError {
@@ -20,6 +22,8 @@ pub enum DecodeError {
     PolarsError(#[from] PolarsError),
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
+    #[error("Join error: {0}")]
+    JoinError(#[from] tokio::task::JoinError),
 }
 
 #[derive(Debug, Serialize)]
@@ -81,22 +85,76 @@ impl From<DynSolValue> for StringifiedValue {
     }
 }
 
-// pub fn decode_logs(df: DataFrame) -> Result<DataFrame, DecodeError> {
-pub fn decode_logs(df: DataFrame) -> Result<(), DecodeError> {
-    //break the large df into smaller chunks with DECODEDCHUCKSIZE rows each
+pub async  fn decode_logs(df: DataFrame) -> Result<(), DecodeError> {
+    // Create a semaphore with 4 permits
+    let semaphore = Arc::new(Semaphore::new(MAX_THREAD_NUMBER));
+    let (tx, mut rx) = mpsc::channel(10); // Adjust buffer size as needed
+    let total_height = df.height();
+    let mut handles = Vec::new();
+
+    //break the logs into chunks of DECODEDCHUCKSIZE
     let mut i = 0;
-    while i < df.height() {
-        println!("[{}] Decoding chunk: {} to {}", Local::now().format("%Y-%m-%d %H:%M:%S"), i, (i + DECODEDCHUCKSIZE).min(df.height()));
-        print_system_memory();
-        let end = (i + DECODEDCHUCKSIZE).min(df.height());
-        let chunk = df.slice(i as i64, end);
-        polars_decode_logs(chunk, i, end)?;
+    while i < total_height {
+        let end = (i + DECODED_CHUCK_SIZE).min(total_height);
+        let chunk = df.slice(i as i64, end - i);
+        
+        // Clone the semaphore and transmitter for the task
+        let sem_clone = semaphore.clone();
+        let tx_clone = tx.clone();
+
+        let handle = task::spawn(async move {
+            // Acquire a permit from the semaphore
+            let _permit = sem_clone.acquire().await.unwrap();
+
+            // Run the blocking operation
+            match polars_decode_logs(chunk, i, end) {
+                Ok(_) => {
+                    tx_clone.send(Ok((i, end))).await.expect("Failed to send result");
+                },
+                Err(e) => {
+                    tx_clone.send(Err(e)).await.expect("Failed to send error");
+                }
+            }
+
+            // Permit is automatically released when _permit goes out of scope
+        });
+
+        handles.push(handle);
         i = end;
     }
+
+    // Drop the original sender to allow rx to complete
+    drop(tx);
+
+    // Wait for all tasks to complete and check for errors
+    while let Some(result) = rx.recv().await {
+        match result {
+            Ok((start, end)) => {
+                println!("[{}] Finished decoding chunk: {} to {}", 
+                    chrono::Local::now().format("%Y-%m-%d %H:%M:%S"), 
+                    start, 
+                    end
+                );
+                print_system_memory();
+            }
+            Err(e) => return Err(e),
+        }
+    }
+
+    // Wait for all spawned tasks to complete
+    for handle in handles {
+        handle.await?;
+    }
+
     Ok(())
 }
 
 fn polars_decode_logs(df: DataFrame, i: usize, end: usize) -> Result<(), DecodeError> {
+    println!("[{}] Start decoding chunk: {} to {}", 
+        chrono::Local::now().format("%Y-%m-%d %H:%M:%S"), 
+        i, 
+        end
+    );
     let decoded_chuck_df = df.lazy()
     //apply decode_log_udf
         .with_columns([
@@ -134,7 +192,7 @@ fn polars_decode_logs(df: DataFrame, i: usize, end: usize) -> Result<(), DecodeE
         .collect()?;
 
     //save the decoded logs to parquet 
-    save_decoded_logs(decoded_chuck_df, &format!("{}{}_to_{}.parquet", DECODEDTEMPPATH, i, end))?;
+    save_decoded_logs(decoded_chuck_df, &format!("{}{}_to_{}.parquet", DECODED_PATH, i, end))?;
     Ok(())
 
 }

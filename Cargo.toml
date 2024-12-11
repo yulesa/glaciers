@@ -11,3 +11,4 @@ polars = { version = "0.41.0", features = ["lazy", "parquet", "dtype-struct", "s
 thiserror = "1.0.50"
 chrono = "0.4.38"
 sysinfo = "0.33.0"
+tokio = { version = "1.42.0", features = ["full"] }

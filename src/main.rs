@@ -16,7 +16,8 @@ enum AppError {
     PolarsError(#[from] polars::prelude::PolarsError),
 }
 
-fn main() -> Result<(), AppError> {
+#[tokio::main]
+async fn main() -> Result<(), AppError> {
     let abi_list_df = abi_reader::read_abis_topic0(ABI_PATH)?;
     let ethereum_logs_df = load_ethereum_logs(SOURCE_PATH)?;
     println!("[{}] Log ABI join has started", Local::now().format("%Y-%m-%d %H:%M:%S"));
@@ -31,7 +32,7 @@ fn main() -> Result<(), AppError> {
         .collect()?;
 
     println!("[{}] Decoding has started", Local::now().format("%Y-%m-%d %H:%M:%S"));
-    decode_logs(logs_left_join_abi_df)?;
+    decode_logs(logs_left_join_abi_df).await?;
     println!("[{}] Decoding has finished", Local::now().format("%Y-%m-%d %H:%M:%S"));
 
     Ok(())
