@@ -4,18 +4,15 @@ use polars::prelude::*;
 
 #[derive(Debug)]
 pub struct EventRow {
-    address: Address,
     topic0: B256,
-    signature: String,
-    pub full_signature: String,
-    abi_item: String,
+    full_signature: String,
     name: String,
     anonymous: bool,
     id: String,
 }
 
-pub fn read_abis() -> PolarsResult<DataFrame> {
-    let path = Path::new("ABIs/ethereum__abis.parquet");
+pub fn read_abis_topic0(path: &str) -> PolarsResult<DataFrame> {
+    let path = Path::new(path);
     let existing_df = if path.exists() {
         read_parquet_file(path)?
     } else {
@@ -46,16 +43,16 @@ pub fn read_new_abi_files() -> Vec<EventRow> {
 
 fn process_abi_file(path: std::path::PathBuf) -> Option<Vec<EventRow>> {
     let address = extract_address_from_path(&path);
-    if let Some(address) = address {
-            println!("Reading file: {:?}", path);
-            let json = fs::read_to_string(&path).ok()?;
-            let abi: JsonAbi = serde_json::from_str(&json).ok()?;
-            Some(abi.events().map(|event| create_event_row(address, event)).collect())
-        } else {
-            //skip file if it's not a .json or couldn't be parsed into an address by the extract_address_from_path function
-            println!("Skipping file: {:?}", path);
-            None
-        }
+    if address.is_some() {
+        println!("Reading file: {:?}", path);
+        let json = fs::read_to_string(&path).ok()?;
+        let abi: JsonAbi = serde_json::from_str(&json).ok()?;
+        Some(abi.events().map(|event| create_event_row(event)).collect())
+    } else {
+        //skip file if it's not a .json or couldn't be parsed into an address by the extract_address_from_path function
+        println!("Skipping file: {:?}. It's not a .json or filename couldn't be parsed into an address", path);
+        None
+    }
 }
 
 fn extract_address_from_path(path: &std::path::Path) -> Option<Address> {
@@ -65,28 +62,24 @@ fn extract_address_from_path(path: &std::path::Path) -> Option<Address> {
         .and_then(|str| Address::from_str(str).ok())
 }
 
-fn create_event_row(address: Address, event: &alloy::json_abi::Event) -> EventRow {
+fn create_event_row(event: &alloy::json_abi::Event) -> EventRow {
     let event_row = EventRow {
-        address,
         topic0: event.selector(),
-        signature: event.signature(),
         full_signature: event.full_signature(),
-        abi_item: format!("{:?}", event),
         name: event.name.to_string(),
         anonymous: event.anonymous,
-        id: event.selector().to_string() + &event.signature()[..],
+        id: event.selector().to_string() +" - "+ &event.full_signature()[..],
     };
-    println!("\tEventRow: {:?}, {:?}", event_row.signature, event_row.topic0);
+    println!("\tEventRow: {:?}, {:?}", event_row.full_signature, event_row.topic0);
     event_row
 }
 
 pub fn create_dataframe_from_event_rows(rows: Vec<EventRow>) -> PolarsResult<DataFrame> {
     let columns = vec![
-        Series::new("Address", rows.iter().map(|r| r.address.as_slice()).collect::<Vec<_>>()),
         Series::new("topic0", rows.iter().map(|r| r.topic0.as_slice()).collect::<Vec<&[u8]>>()),
-        Series::new("signature", rows.iter().map(|r| r.signature.clone()).collect::<Vec<String>>()),
+        // Series::new("signature", rows.iter().map(|r| r.signature.clone()).collect::<Vec<String>>()),
         Series::new("full_signature", rows.iter().map(|r| r.full_signature.clone()).collect::<Vec<String>>()),
-        Series::new("abi_item", rows.iter().map(|r| r.abi_item.clone()).collect::<Vec<String>>()),
+        // Series::new("abi_item", rows.iter().map(|r| r.abi_item.clone()).collect::<Vec<String>>()),
         Series::new("name", rows.iter().map(|r| r.name.clone()).collect::<Vec<String>>()),
         Series::new("anonymous", rows.iter().map(|r| r.anonymous).collect::<Vec<bool>>()),
         Series::new("id", rows.iter().map(|r| r.id.clone()).collect::<Vec<String>>()),

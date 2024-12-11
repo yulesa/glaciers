@@ -1,9 +1,16 @@
+use std::fs::File;
+use std::path::Path;
 use alloy::dyn_abi::{DecodedEvent, DynSolValue, EventExt};
 use alloy::json_abi::Event;
 use alloy::primitives::FixedBytes;
 use polars::prelude::*;
 use thiserror::Error;
 use serde::Serialize;
+use sysinfo::System;
+use chrono::Local;
+
+const DECODEDCHUCKSIZE: usize = 200_000;
+const DECODEDTEMPPATH: &str = "data/decoded/ethereum__decoded_logs__";
 
 #[derive(Error, Debug)]
 pub enum DecodeError {
@@ -11,6 +18,8 @@ pub enum DecodeError {
     DecodingError(String),
     #[error("Polars error: {0}")]
     PolarsError(#[from] PolarsError),
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
 }
 
 #[derive(Debug, Serialize)]
@@ -72,13 +81,30 @@ impl From<DynSolValue> for StringifiedValue {
     }
 }
 
-pub fn decode_logs(df: DataFrame) -> Result<DataFrame, DecodeError> {
-    df.lazy()
+// pub fn decode_logs(df: DataFrame) -> Result<DataFrame, DecodeError> {
+pub fn decode_logs(df: DataFrame) -> Result<(), DecodeError> {
+    //break the large df into smaller chunks with DECODEDCHUCKSIZE rows each
+    let mut i = 0;
+    while i < df.height() {
+        println!("[{}] Decoding chunk: {} to {}", Local::now().format("%Y-%m-%d %H:%M:%S"), i, (i + DECODEDCHUCKSIZE).min(df.height()));
+        print_system_memory();
+        let end = (i + DECODEDCHUCKSIZE).min(df.height());
+        let chunk = df.slice(i as i64, end);
+        polars_decode_logs(chunk, i, end)?;
+        i = end;
+    }
+    Ok(())
+}
+
+fn polars_decode_logs(df: DataFrame, i: usize, end: usize) -> Result<(), DecodeError> {
+    let decoded_chuck_df = df.lazy()
+    //apply decode_log_udf
         .with_columns([
             as_struct(vec![col("topic0"), col("topic1"), col("topic2"), col("topic3"), col("data"), col("full_signature")])
                 .map(decode_log_udf, GetOutput::from_type(DataType::String))
                 .alias("decoded_log"),
         ])
+    //split the udf output column (decoded_log) into 3 columns
         .with_columns([
             col("decoded_log")
             .str()
@@ -103,19 +129,22 @@ pub fn decode_logs(df: DataFrame) -> Result<DataFrame, DecodeError> {
             .get(lit(2), false)
             .alias("event_json")
         ])
-        // Remove the original decoded_log column
+    // Remove the original decoded_log column
         .drop(vec!["decoded_log"])
-        .collect()
-        .map_err(DecodeError::from)
+        .collect()?;
+
+    //save the decoded logs to parquet 
+    save_decoded_logs(decoded_chuck_df, &format!("{}{}_to_{}.parquet", DECODEDTEMPPATH, i, end))?;
+    Ok(())
+
 }
 
 fn decode_log_udf(s: Series) -> PolarsResult<Option<Series>> {
     let series_struct_array: &StructChunked = s.struct_()?;
     let fields = series_struct_array.fields();
-    
-    let topics_data = extract_log_fields(fields)?;
+    let topics_data_sig = extract_log_fields(fields)?;
 
-    let out: StringChunked = topics_data
+    let udf_output: StringChunked = topics_data_sig
         .into_iter()
         .map(|(topics, data, sig)| {
             decode(sig, topics, data)
@@ -124,7 +153,7 @@ fn decode_log_udf(s: Series) -> PolarsResult<Option<Series>> {
         })
         .collect();
 
-    Ok(Some(out.into_series()))
+    Ok(Some(udf_output.into_series()))
 }
 
 fn extract_log_fields(fields: &[Series]) -> PolarsResult<Vec<(Vec<FixedBytes<32>>, &[u8], &str)>> {
@@ -208,4 +237,16 @@ fn map_event_sig_and_values(event_sig: &Event, event_values: &Vec<DynSolValue>) 
     }
 
     Ok(structured_event)
+}
+
+fn print_system_memory() {
+    let sys = System::new_all(); 
+    println!("total memory: {} bytes", sys.total_memory());
+    println!("used memory : {} bytes", sys.used_memory());
+}
+
+fn save_decoded_logs(mut df: DataFrame, path: &str) -> Result<(), DecodeError> {
+    let mut file = File::create(Path::new(path))?;
+    ParquetWriter::new(&mut file).finish(&mut df)?;
+    Ok(())
 }
