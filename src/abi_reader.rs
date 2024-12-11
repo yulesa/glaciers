@@ -2,6 +2,8 @@ use std::{fs::{self, File}, str::FromStr, path::Path};
 use alloy::{json_abi::JsonAbi, primitives::{Address, B256}};
 use polars::prelude::*;
 
+const ABIS_FOLDER_PATH: &str = "ABIs/abi_database";
+
 #[derive(Debug)]
 pub struct EventRow {
     topic0: B256,
@@ -21,7 +23,20 @@ pub fn read_abis_topic0(path: &str) -> PolarsResult<DataFrame> {
 
     let new_rows = read_new_abi_files();
     let new_df = create_dataframe_from_event_rows(new_rows)?;
-    let mut combined_df = concat_dataframes(vec![existing_df.lazy(), new_df.lazy()])?;
+    let diff_df = new_df.join(
+        &existing_df,
+        ["id"],
+        ["id"],
+        JoinArgs::new(JoinType::Anti))?;
+    //if diff_df is not empty, print all diff_df rows id's column
+    if diff_df.height() == 0 {
+        println!("No new event signatures found in the scanned files.");
+    } else {
+        println!("New event signatures found found:");
+        diff_df.column("id").unwrap().iter().for_each(|s| println!("{}", s.to_string()));
+    }
+
+    let mut combined_df = concat_dataframes(vec![existing_df.lazy(), diff_df.lazy()])?;
     let mut file = File::create(path)?;
     ParquetWriter::new(&mut file).finish(&mut combined_df)?;
 
@@ -33,7 +48,7 @@ fn read_parquet_file(path: &Path) -> PolarsResult<DataFrame> {
 }
 
 pub fn read_new_abi_files() -> Vec<EventRow> {
-    let abis_path = "./ABIs/abi_database";
+    let abis_path = ABIS_FOLDER_PATH;
     fs::read_dir(abis_path)
         .unwrap_or_else(|_| panic!("Unable to read directory {}", abis_path))
         .filter_map(|entry| process_abi_file(entry.expect("Unable to read file").path()))
@@ -55,7 +70,7 @@ fn process_abi_file(path: std::path::PathBuf) -> Option<Vec<EventRow>> {
     }
 }
 
-fn extract_address_from_path(path: &std::path::Path) -> Option<Address> {
+fn extract_address_from_path(path: &Path) -> Option<Address> {
     path.extension().and_then(|s| s.to_str()).filter(|&ext| ext == "json")
         .and_then(|_| path.file_stem())
         .and_then(|s| s.to_str())
@@ -70,7 +85,6 @@ fn create_event_row(event: &alloy::json_abi::Event) -> EventRow {
         anonymous: event.anonymous,
         id: event.selector().to_string() +" - "+ &event.full_signature()[..],
     };
-    println!("\tEventRow: {:?}, {:?}", event_row.full_signature, event_row.topic0);
     event_row
 }
 

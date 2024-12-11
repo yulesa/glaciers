@@ -12,7 +12,7 @@ use chrono::Local;
 
 const DECODED_CHUCK_SIZE: usize = 500_000;
 const MAX_THREAD_NUMBER: usize = 16;
-const DECODED_PATH: &str = "data/ethereum__decoded_logs__18426253_to_18436252.parquet";
+const DECODED_FOLDER_PATH: &str = "data/decoded/";
 
 #[derive(Error, Debug)]
 pub enum DecodeError {
@@ -85,8 +85,8 @@ impl From<DynSolValue> for StringifiedValue {
     }
 }
 
-pub async  fn decode_logs(df: DataFrame) -> Result<(), DecodeError> {
-    // Create a semaphore with 4 permits
+pub async fn decode_logs(df: DataFrame, raw_log_file_name: &str) -> Result<(), DecodeError> {
+    // Create a semaphore with MAX_THREAD_NUMBER permits
     let semaphore = Arc::new(Semaphore::new(MAX_THREAD_NUMBER));
     let (tx, mut rx) = mpsc::channel(10);
     let total_height = df.height();
@@ -114,7 +114,7 @@ pub async  fn decode_logs(df: DataFrame) -> Result<(), DecodeError> {
                     let mut dfs = collected_dfs.lock().await;
                     dfs.push(decoded_chunk);
                     
-                    tx_clone.send(Ok((i, end))).await.expect("Failed to send result");
+                    tx_clone.send(Ok((i, end, total_height))).await.expect("Failed to send result");
                 },
                 Err(e) => {
                     tx_clone.send(Err(e)).await.expect("Failed to send error");
@@ -133,11 +133,13 @@ pub async  fn decode_logs(df: DataFrame) -> Result<(), DecodeError> {
     // Wait for all tasks to complete and check for errors
     while let Some(result) = rx.recv().await {
         match result {
-            Ok((start, end)) => {
-                println!("[{}] Decoded chunk: {} to {}", 
+            Ok((start, end, total_height    )) => {
+                println!("[{}] Processing file: {}, Decoded chunk {} to {} from a chunk size of {} rows", 
                     Local::now().format("%Y-%m-%d %H:%M:%S"), 
+                    raw_log_file_name,
                     start, 
-                    end
+                    end,
+                    total_height
                 );
             }
             Err(e) => return Err(e),
@@ -149,11 +151,12 @@ pub async  fn decode_logs(df: DataFrame) -> Result<(), DecodeError> {
         handle.await?;
     }
     
-    let collected_dfs_2 = collected_dfs.lock().await.clone();
+    let collected_dfs = collected_dfs.lock().await.clone();
     
     // Concatenate and save the final DataFrame
-    let final_df = union_dataframes(collected_dfs_2).await?;
-    save_decoded_logs(final_df, DECODED_PATH)?;
+    let final_df = union_dataframes(collected_dfs).await?;
+    let save_path = format!("{}{}", DECODED_FOLDER_PATH, raw_log_file_name.replace("logs", "decoded_logs"));
+    save_decoded_logs(final_df, &save_path)?;
 
     Ok(())
 }

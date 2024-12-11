@@ -1,8 +1,6 @@
 /target
 /data
-/ABIs
+/local_files
 *.csv
-*.parquet
-*.json
 *.ipynb
 *.txt
