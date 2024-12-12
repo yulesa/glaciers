@@ -10,10 +10,10 @@ use tokio::sync::{mpsc, Mutex, Semaphore};
 use tokio::task;
 use chrono::Local;
 
-const MAX_CONCURRENT_FILES_DECODING: usize = 16;
-const DECODED_CHUCK_SIZE: usize = 500_000;
-const MAX_THREAD_NUMBER: usize = 16;
 const DECODED_FOLDER_PATH: &str = "data/decoded/";
+const MAX_CONCURRENT_FILES_DECODING: usize = 16;
+const MAX_CHUNK_THREADS_PER_FILE: usize = 16;
+const DECODED_CHUCK_SIZE: usize = 500_000;
 
 #[derive(Error, Debug)]
 pub enum DecodeError {
@@ -140,7 +140,7 @@ async fn process_log_file(log_file_path: PathBuf, abi_list_df: DataFrame) -> Res
         .drop(&["id"])
         .collect()?;
 
-    // Split logs files in chunk, decode logs, collected and union results and save in the decoder folder
+    // Split logs files in chunk, decode logs, collected and union results and save in the decoded folder
     decode_logs(logs_left_join_abi_df, &file_name).await?;
     
     println!("[{}] Finished file: {}", Local::now().format("%Y-%m-%d %H:%M:%S"), file_path_str);
@@ -157,7 +157,7 @@ fn load_ethereum_logs(path: &str) -> Result<DataFrame, DecodeError> {
 
 pub async fn decode_logs(df: DataFrame, raw_log_file_name: &str) -> Result<(), DecodeError> {
     // Create a semaphore with MAX_THREAD_NUMBER permits
-    let semaphore = Arc::new(Semaphore::new(MAX_THREAD_NUMBER));
+    let semaphore = Arc::new(Semaphore::new(MAX_CHUNK_THREADS_PER_FILE));
     // Create a channel to communicate tasks results
     let (tx, mut rx) = mpsc::channel(10);
     // Shared vector to collect DataFrame chunks
