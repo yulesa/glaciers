@@ -1,15 +1,14 @@
-# Batch Decoder
-*Seeking a better name.*
+# Glaciers
 
-Batch Decoder is tool for batch decoding raw logs and traces files (traces support coming soon), producing respective decoded tables.It matches raw log and traces entries with ABI event and function signatures, adding context — what each field or value represents and type casting.
+Glaciers is tool for batch decoding raw logs and traces files (traces support coming soon), producing respective decoded tables.It matches raw log and traces entries with ABI event and function signatures, adding context — what each field or value represents and type casting.
 
 ## Installation
-Currently, Batch Decoder requires manual compilation and execution. To get started:
+Currently, Glaciers requires manual compilation and execution. To get started:
 
 1. Clone the repository:
 ```
-git clone https://github.com/yulesa/batch_decoder
-cd batch_decoder
+git clone https://github.com/yulesa/glaciers
+cd glaciers
 ```
 2. Compile and run the projec:
 
@@ -38,7 +37,7 @@ Some initial ABIs, a topic0 database, and a raw log file are provided as example
 
 
 ## How It Works
-Batch Decoder currently only supports decoding event logs. It includes the following functions:
+Glaciers currently only supports decoding event logs. It includes the following functions:
 
 **read_abis_topic0:** 
 
