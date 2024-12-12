@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use alloy::dyn_abi::{DecodedEvent, DynSolValue, EventExt};
 use alloy::json_abi::Event;
 use alloy::primitives::FixedBytes;
@@ -10,6 +10,7 @@ use tokio::sync::{mpsc, Mutex, Semaphore};
 use tokio::task;
 use chrono::Local;
 
+const MAX_CONCURRENT_FILES_DECODING: usize = 16;
 const DECODED_CHUCK_SIZE: usize = 500_000;
 const MAX_THREAD_NUMBER: usize = 16;
 const DECODED_FOLDER_PATH: &str = "data/decoded/";
@@ -22,8 +23,8 @@ pub enum DecodeError {
     PolarsError(#[from] PolarsError),
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
-    #[error("Join error: {0}")]
-    JoinError(#[from] tokio::task::JoinError)
+    #[error("Join error: {0}")]    
+    JoinError(#[from] tokio::task::JoinError),
 }
 
 #[derive(Debug, Serialize)]
@@ -85,21 +86,91 @@ impl From<DynSolValue> for StringifiedValue {
     }
 }
 
+pub async fn process_log_files(log_files: Vec<PathBuf>, abi_list_df: DataFrame) -> Result<(), DecodeError> {
+// Create a semaphore with MAX_CONCURRENT_FILES_DECODING permits
+    let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_FILES_DECODING));
+    // Create a vector to hold our join handles
+    let mut handles = Vec::new();
+
+    // Spawn a task for each log file
+    for log_file_path in log_files {
+        // Clone the DataFrame and semafore for each task
+        let abi_list_df = abi_list_df.clone();
+        let semaphore = semaphore.clone();
+
+        // Spawn a tokio task for each file
+        let handle = task::spawn(async move {
+            // Acquire a permit before processing
+            let _permit = semaphore.acquire().await.unwrap();
+            process_log_file(log_file_path, abi_list_df).await
+        });
+
+        handles.push(handle);
+    }
+
+    // Wait for all tasks to complete and collect errors
+    for handle in handles {
+        // Unwrap the outer Result from task::spawn
+        handle.await??;
+    }
+    
+    println!("[{}] All files processed", Local::now().format("%Y-%m-%d %H:%M:%S"));
+    Ok(())
+}
+
+async fn process_log_file(log_file_path: PathBuf, abi_list_df: DataFrame) -> Result<(), DecodeError> {
+
+    let file_path_str = log_file_path.to_string_lossy().into_owned();
+    let file_name = log_file_path.file_name().unwrap().to_string_lossy().into_owned();
+    
+    println!("[{}] Starting file: {}", Local::now().format("%Y-%m-%d %H:%M:%S"), file_path_str);
+
+    // Load Ethereum logs for this specific file
+    let ethereum_logs_df = load_ethereum_logs(&file_path_str)?;
+
+    // Perform left join with ABI topic0 list 
+    let logs_left_join_abi_df = ethereum_logs_df
+        .lazy()
+        .join(
+            abi_list_df.lazy(),
+            [col("topic0")],
+            [col("topic0")],
+            JoinArgs::new(JoinType::Left)
+        )
+        .drop(&["id"])
+        .collect()?;
+
+    // Split logs files in chunk, decode logs, collected and union results and save in the decoder folder
+    decode_logs(logs_left_join_abi_df, &file_name).await?;
+    
+    println!("[{}] Finished file: {}", Local::now().format("%Y-%m-%d %H:%M:%S"), file_path_str);
+
+    Ok(())
+}
+
+// Helper function to create df from the logs' parquet file
+fn load_ethereum_logs(path: &str) -> Result<DataFrame, DecodeError> {
+    LazyFrame::scan_parquet(path, Default::default())?
+        .collect()
+        .map_err(DecodeError::from)
+}
+
 pub async fn decode_logs(df: DataFrame, raw_log_file_name: &str) -> Result<(), DecodeError> {
     // Create a semaphore with MAX_THREAD_NUMBER permits
     let semaphore = Arc::new(Semaphore::new(MAX_THREAD_NUMBER));
+    // Create a channel to communicate tasks results
     let (tx, mut rx) = mpsc::channel(10);
-    let total_height = df.height();
-    
     // Shared vector to collect DataFrame chunks
     let collected_dfs = Arc::new(Mutex::new(Vec::new()));
-
+    // Vector to hold our tasks handles
     let mut handles = Vec::new();
 
+    // Split the DataFrame in chunks and spawn a task for each chunk
+    let total_height = df.height();
     let mut i = 0;
     while i < total_height {
         let end = (i + DECODED_CHUCK_SIZE).min(total_height);
-        let chunk = df.slice(i as i64, end - i);
+        let chunk_df = df.slice(i as i64, end - i);
         
         let sem_clone = semaphore.clone();
         let tx_clone = tx.clone();
@@ -109,7 +180,8 @@ pub async fn decode_logs(df: DataFrame, raw_log_file_name: &str) -> Result<(), D
             let collected_dfs = collected_dfs_clone;
             let _permit = sem_clone.acquire().await;
 
-            match polars_decode_logs(chunk) {
+            //Use polars to iterate through each row and decode, communicate through channel the result.
+            match polars_decode_logs(chunk_df) {
                 Ok(decoded_chunk) => {
                     let mut dfs = collected_dfs.lock().await;
                     dfs.push(decoded_chunk);
@@ -150,7 +222,6 @@ pub async fn decode_logs(df: DataFrame, raw_log_file_name: &str) -> Result<(), D
     for handle in handles {
         handle.await?;
     }
-    
     let collected_dfs = collected_dfs.lock().await.clone();
     
     // Concatenate and save the final DataFrame
@@ -161,10 +232,9 @@ pub async fn decode_logs(df: DataFrame, raw_log_file_name: &str) -> Result<(), D
     Ok(())
 }
 
-// Modify polars_decode_logs to return the DataFrame instead of saving it
 fn polars_decode_logs(df: DataFrame) -> Result<DataFrame, DecodeError> {
     let decoded_chuck_df = df.lazy()
-    //apply decode_log_udf
+    //apply decode_log_udf, creating a decoded_log column
         .with_columns([
             as_struct(vec![col("topic0"), col("topic1"), col("topic2"), col("topic3"), col("data"), col("full_signature")])
                 .map(decode_log_udf, GetOutput::from_type(DataType::String))
@@ -218,9 +288,11 @@ async fn union_dataframes(dfs: Vec<DataFrame>) -> Result<DataFrame, DecodeError>
     Ok(unioned_df)
 }
 
+//Construct a vec with topics, data and signature, and iterate through each, calling the decode function and mapping it to a 3 parts result string
 fn decode_log_udf(s: Series) -> PolarsResult<Option<Series>> {
     let series_struct_array: &StructChunked = s.struct_()?;
     let fields = series_struct_array.fields();
+    //extract topics, data and signature from the df struct arrays
     let topics_data_sig = extract_log_fields(fields)?;
 
     let udf_output: StringChunked = topics_data_sig
@@ -267,6 +339,7 @@ fn extract_log_fields(fields: &[Series]) -> PolarsResult<Vec<(Vec<FixedBytes<32>
         .collect()
 }
 
+//use alloy functions to create the necessary structs, and call the decode_log_parts function
 fn decode(full_signature: &str, topics: Vec<FixedBytes<32>>, data: &[u8]) -> Result<ExtDecodedEvent, DecodeError> {
     let event_sig = parse_event_signature(full_signature)?;
     let decoded_event = decode_event_log(&event_sig, topics, data)?;
