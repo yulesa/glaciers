@@ -1,7 +1,5 @@
 /target
-/data
 /local_files
-*.parquet
 *.csv
 *.ipynb
 *.txt

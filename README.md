@@ -19,6 +19,8 @@ cargo run
 
 ## Usage examples
 
+Some initial ABIs, a topic0 database, and a raw log file are provided as examples.
+
 1. Add new ABIs to the abi_database folder. New ABIs need to be json files and have the file name as valid contract address.
 
 2. Create a data folder structure in the project folder. If you want to use different names or existing folders, change the const in the rust files.
