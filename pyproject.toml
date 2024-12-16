@@ -1,0 +1,14 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "glacier"
+version = "0.1.0"
+dependencies = [
+    "cryo>=0.3.2",
+    "maturin>=1.7.8",
+    "polars>=1.17.1",
+    "pyarrow>=18.1.0",
+]
+  

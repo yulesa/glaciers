@@ -1,82 +1,55 @@
-# Glaciers
+# Glacier
 
-Glaciers is tool for batch decoding raw logs and traces files (traces support coming soon), producing respective decoded tables.It matches raw log and traces entries with ABI event and function signatures, adding context — what each field or value represents and type casting.
+Fast Ethereum event log decoder in Rust with Python bindings.
+
+## Features
+- Decode Ethereum event logs using ABI definitions
+- Process logs in parallel using Polars DataFrames
+- Python bindings for easy integration
 
 ## Installation
-Currently, Glaciers requires manual compilation and execution. To get started:
 
-1. Clone the repository:
+### Using uv (Recommended)
+```bash
+# Create and activate virtual environment
+uv venv
+source .venv/bin/activate
+
+# Install dependencies
+uv sync
+
+# Build and install the package
+uv run maturin develop --uv
 ```
-git clone https://github.com/yulesa/glaciers
-cd glaciers
-```
-2. Compile and run the project:
 
-```
-cargo run
+### Running Tests
+```bash
+# Run end-to-end test
+uv run python test_e2e.py
 ```
 
-## Usage examples
+## Usage Example
+```python
+import polars as pl
+from glacier import decode_logs
 
-Some initial ABIs, a topic0 database, and a raw log file  are provided as examples.
+# Create logs DataFrame with raw event logs
+logs_df = pl.DataFrame({
+    "topic0": [bytes.fromhex("ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")],
+    "topic1": [bytes.fromhex("000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48")],
+    "topic2": [bytes.fromhex("0000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488d")],
+    "topic3": [bytes.fromhex("0000000000000000000000000000000000000000000000000000000000000000")],
+    "data": [bytes.fromhex("0000000000000000000000000000000000000000000000000000000000000064")],
+})
 
-1. Add new ABIs to the abi_database folder. New ABIs need to be json files and have the file name as a valid contract address.
+# Create ABI DataFrame with event signature
+abi_df = pl.DataFrame({
+    "topic0": [bytes.fromhex("ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")],
+    "full_signature": ["Transfer(address indexed from, address indexed to, uint256 value)"],
+})
 
-2. Create a data folder structure in the project folder. If you want to use different names or existing folders, change the const in the Rust files.
+# Decode the events
+decoded_df = decode_logs(logs_df, abi_df)
+print(decoded_df)
 ```
-├── data
-
-│   ├── logs
-
-│   ├── decoded
-
-```
-3. Add logs parquet files to the logs folder.  Logs schemas need to have: topic0, topic1, topic2, topic3, data.
-4. Manually set the const in the rust files: ABIS_FOLDER_PATH, DECODED_FOLDER_PATH, MAX_CONCURRENT_FILES_DECODING, MAX_CHUNK_THREADS_PER_FILE, DECODED_CHUCK_SIZE
-5. Compile and Run
-
-## Schema
-
-Glaciers will repeat the same schema you have for your input files.
-Input files must contain:
-    - ('topic0', Binary),
-    - ('topic1', Binary),
-    - ('topic2', Binary),
-    - ('topic3', Binary),
-    - ('data', Binary),
-
-The following columns will be added to your original table:
-Decoded Log Schema:
-
-    - ('full_signature', String): event Transfer(address indexed from, address indexed to, uint256 value)
-    - ('name', String): Transfer
-    - ('anonymous', Boolean): False
-    - ('event_values', String): '[Address(0xeed...), Address(0x7a2...), Uint(3151936770479715624, 256)]'
-    - ('event_keys', String): '["from", "to", "value"]'
-    - ('event_json', String): [{"name":"from","index":0,"value_type":"address","value":"0xeEDfF72A683058F8FF531e8c98575f920430FdC5"}...]
-
-## How It Works
-Glaciers currently only support decoding event logs and using parquet files. It includes the following functions:
-
-**read_abis_topic0:** 
-
-This function scans an ABI database and generates a list of event signatures in an abis_topic0.parquet file. The schema is optimized for event decoding but could be extended to auxiliary tables for other purposes.
-*Note: In the future CLI implementation, this function may become an optional step.*
-
-**process_log_files:** 
-
-This function performs the following steps:
-
-1. Input Handling: Reads through multiple raw log files in a folder. [Cryo](https://github.com/paradigmxyz/cryo) schema was used as a reference. Each file is processed by a separate thread.
-
-2. Event Matching: Matches raw log entries with event signatures stored in abis_topic0.parquet using a Polars join. For function matching, an advanced algorithm will be implemented in the future.
-
-3. Chunking and Parallel Decoding: Files are split into smaller chunks, spawning threads for each, enabling efficient decoding of large logs data frames. Decoding is performed using a Polars UDF (User Defined Function).
-
-4. Output: Chunks' results are collected and combined into a single decoded output file for each raw log file and saved in a decoded folder.
-
-*Notes:*
-- Event Matching: For events, this is a simple Polars join, but for functions, this will encompass an algorithm to find the best match.
-- A future CLI will be used to configure each step in the process. Some variables are already highlighted as constants.
-- Different file types and schemas to come in future versions.
 
