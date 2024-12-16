@@ -11,9 +11,7 @@ Fast Ethereum event log decoder in Rust with Python bindings.
 
 ### Using uv (Recommended)
 ```bash
-# Create and activate virtual environment
-uv venv
-source .venv/bin/activate
+git clone https://github.com/yulesa/glaciers
 
 # Install dependencies
 uv sync
