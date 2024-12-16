@@ -10,7 +10,7 @@ Currently, Glaciers requires manual compilation and execution. To get started:
 git clone https://github.com/yulesa/glaciers
 cd glaciers
 ```
-2. Compile and run the projec:
+2. Compile and run the project:
 
 ```
 cargo run
@@ -18,11 +18,11 @@ cargo run
 
 ## Usage examples
 
-Some initial ABIs, a topic0 database, and a raw log file are provided as examples.
+Some initial ABIs, a topic0 database, and a raw log file  are provided as examples.
 
-1. Add new ABIs to the abi_database folder. New ABIs need to be json files and have the file name as valid contract address.
+1. Add new ABIs to the abi_database folder. New ABIs need to be json files and have the file name as a valid contract address.
 
-2. Create a data folder structure in the project folder. If you want to use different names or existing folders, change the const in the rust files.
+2. Create a data folder structure in the project folder. If you want to use different names or existing folders, change the const in the Rust files.
 ```
 ├── data
 
@@ -31,17 +31,17 @@ Some initial ABIs, a topic0 database, and a raw log file are provided as example
 │   ├── decoded
 
 ```
-3. Add logs parquet files to the logs folder.  Logs schemas needs to have: topic0, topic1, topic2, topic3, data.
+3. Add logs parquet files to the logs folder.  Logs schemas need to have: topic0, topic1, topic2, topic3, data.
 4. Manually set the const in the rust files: ABIS_FOLDER_PATH, DECODED_FOLDER_PATH, MAX_CONCURRENT_FILES_DECODING, MAX_CHUNK_THREADS_PER_FILE, DECODED_CHUCK_SIZE
-5. Copile and Run
+5. Compile and Run
 
 
 ## How It Works
-Glaciers currently only supports decoding event logs. It includes the following functions:
+Glaciers currently only support decoding event logs and using parquet files. It includes the following functions:
 
 **read_abis_topic0:** 
 
-This function scans an ABI database and generates a list of event signatures in a abis_topic0.parquet file. The schema is optimized for event decoding but could be extended to auxiliary tables for other purposes.
+This function scans an ABI database and generates a list of event signatures in an abis_topic0.parquet file. The schema is optimized for event decoding but could be extended to auxiliary tables for other purposes.
 *Note: In the future CLI implementation, this function may become an optional step.*
 
 **process_log_files:** 
@@ -57,7 +57,7 @@ This function performs the following steps:
 4. Output: Chunks' results are collected and combined into a single decoded output file for each raw log file and saved in a decoded folder.
 
 *Notes:*
-- Event Matching: For events, this is a simple polars join, but for functions this will encompass an algorith to find the best match.
+- Event Matching: For events, this is a simple Polars join, but for functions, this will encompass an algorithm to find the best match.
 - A future CLI will be used to configure each step in the process. Some variables are already highlighted as constants.
-- Different files types and schemas to come in future versions.
+- Different file types and schemas to come in future versions.
 
