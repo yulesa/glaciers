@@ -35,6 +35,25 @@ Some initial ABIs, a topic0 database, and a raw log file  are provided as exampl
 4. Manually set the const in the rust files: ABIS_FOLDER_PATH, DECODED_FOLDER_PATH, MAX_CONCURRENT_FILES_DECODING, MAX_CHUNK_THREADS_PER_FILE, DECODED_CHUCK_SIZE
 5. Compile and Run
 
+## Schema
+
+Glaciers will repeat the same schema you have for your input files.
+Input files must contain:
+    - ('topic0', Binary),
+    - ('topic1', Binary),
+    - ('topic2', Binary),
+    - ('topic3', Binary),
+    - ('data', Binary),
+
+The following columns will be added to your original table:
+Decoded Log Schema:
+
+    - ('full_signature', String): event Transfer(address indexed from, address indexed to, uint256 value)
+    - ('name', String): Transfer
+    - ('anonymous', Boolean): False
+    - ('event_values', String): '[Address(0xeed...), Address(0x7a2...), Uint(3151936770479715624, 256)]'
+    - ('event_keys', String): '["from", "to", "value"]'
+    - ('event_json', String): [{"name":"from","index":0,"value_type":"address","value":"0xeEDfF72A683058F8FF531e8c98575f920430FdC5"}...]
 
 ## How It Works
 Glaciers currently only support decoding event logs and using parquet files. It includes the following functions:
