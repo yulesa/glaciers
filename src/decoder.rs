@@ -1,14 +1,14 @@
-use std::fs::File;
-use std::path::{Path, PathBuf};
 use alloy::dyn_abi::{DecodedEvent, DynSolValue, EventExt};
 use alloy::json_abi::Event;
 use alloy::primitives::FixedBytes;
+use chrono::Local;
 use polars::prelude::*;
-use thiserror::Error;
 use serde::Serialize;
+use std::fs::File;
+use std::path::{Path, PathBuf};
+use thiserror::Error;
 use tokio::sync::{mpsc, Mutex, Semaphore};
 use tokio::task;
-use chrono::Local;
 
 const DECODED_FOLDER_PATH: &str = "data/decoded/";
 const MAX_CONCURRENT_FILES_DECODING: usize = 16;
@@ -23,12 +23,12 @@ pub enum DecodeError {
     PolarsError(#[from] PolarsError),
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
-    #[error("Join error: {0}")]    
+    #[error("Join error: {0}")]
     JoinError(#[from] tokio::task::JoinError),
 }
 
 #[derive(Debug, Serialize)]
-struct StructuredEventParam  {
+struct StructuredEventParam {
     name: String,
     index: u32,
     value_type: String,
@@ -38,7 +38,7 @@ struct StructuredEventParam  {
 struct ExtDecodedEvent {
     event_values: Vec<DynSolValue>,
     event_keys: Vec<String>,
-    event_json: String
+    event_json: String,
 }
 
 //Wrapper type around DynSolValue, to implement to_string function.
@@ -56,26 +56,27 @@ impl StringifiedValue {
             DynSolValue::Bytes(b) => Some(format!("0x{}", String::from_utf8_lossy(b))),
             DynSolValue::String(s) => Some(s.clone()),
             DynSolValue::Array(arr) => Some(format!(
-                "[{}]", 
+                "[{}]",
                 arr.iter()
                     .filter_map(|v| Self::from(v.clone()).to_string())
                     .collect::<Vec<_>>()
                     .join(", ")
             )),
             DynSolValue::FixedArray(arr) => Some(format!(
-                "[{}]", 
+                "[{}]",
                 arr.iter()
                     .filter_map(|v| Self::from(v.clone()).to_string())
                     .collect::<Vec<_>>()
                     .join(", ")
             )),
             DynSolValue::Tuple(tuple) => Some(format!(
-                "({})", 
-                tuple.iter()
+                "({})",
+                tuple
+                    .iter()
                     .filter_map(|v| Self::from(v.clone()).to_string())
                     .collect::<Vec<_>>()
                     .join(", ")
-            ))
+            )),
         }
     }
 }
@@ -86,8 +87,11 @@ impl From<DynSolValue> for StringifiedValue {
     }
 }
 
-pub async fn process_log_files(log_files: Vec<PathBuf>, abi_list_df: DataFrame) -> Result<(), DecodeError> {
-// Create a semaphore with MAX_CONCURRENT_FILES_DECODING permits
+pub async fn process_log_files(
+    log_files: Vec<PathBuf>,
+    abi_list_df: DataFrame,
+) -> Result<(), DecodeError> {
+    // Create a semaphore with MAX_CONCURRENT_FILES_DECODING permits
     let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_FILES_DECODING));
     // Create a vector to hold our join handles
     let mut handles = Vec::new();
@@ -113,37 +117,54 @@ pub async fn process_log_files(log_files: Vec<PathBuf>, abi_list_df: DataFrame) 
         // Unwrap the outer Result from task::spawn
         handle.await??;
     }
-    
-    println!("[{}] All files processed", Local::now().format("%Y-%m-%d %H:%M:%S"));
+
+    println!(
+        "[{}] All files processed",
+        Local::now().format("%Y-%m-%d %H:%M:%S")
+    );
     Ok(())
 }
 
-async fn process_log_file(log_file_path: PathBuf, abi_list_df: DataFrame) -> Result<(), DecodeError> {
-
+async fn process_log_file(
+    log_file_path: PathBuf,
+    abi_list_df: DataFrame,
+) -> Result<(), DecodeError> {
     let file_path_str = log_file_path.to_string_lossy().into_owned();
-    let file_name = log_file_path.file_name().unwrap().to_string_lossy().into_owned();
-    
-    println!("[{}] Starting file: {}", Local::now().format("%Y-%m-%d %H:%M:%S"), file_path_str);
+    let file_name = log_file_path
+        .file_name()
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+
+    println!(
+        "[{}] Starting file: {}",
+        Local::now().format("%Y-%m-%d %H:%M:%S"),
+        file_path_str
+    );
 
     // Load Ethereum logs for this specific file
     let ethereum_logs_df = load_ethereum_logs(&file_path_str)?;
 
-    // Perform left join with ABI topic0 list 
+    // Perform left join with ABI topic0 list
     let logs_left_join_abi_df = ethereum_logs_df
         .lazy()
         .join(
             abi_list_df.lazy(),
             [col("topic0")],
             [col("topic0")],
-            JoinArgs::new(JoinType::Left)
+            JoinArgs::new(JoinType::Left),
         )
-        .drop(&["id"])
+        .select([col("*").exclude(["id"])])
         .collect()?;
 
     // Split logs files in chunk, decode logs, collected and union results and save in the decoded folder
     decode_logs(logs_left_join_abi_df, &file_name).await?;
-    
-    println!("[{}] Finished file: {}", Local::now().format("%Y-%m-%d %H:%M:%S"), file_path_str);
+
+    println!(
+        "[{}] Finished file: {}",
+        Local::now().format("%Y-%m-%d %H:%M:%S"),
+        file_path_str
+    );
 
     Ok(())
 }
@@ -171,7 +192,7 @@ pub async fn decode_logs(df: DataFrame, raw_log_file_name: &str) -> Result<(), D
     while i < total_height {
         let end = (i + DECODED_CHUCK_SIZE).min(total_height);
         let chunk_df = df.slice(i as i64, end - i);
-        
+
         let sem_clone = semaphore.clone();
         let tx_clone = tx.clone();
 
@@ -185,9 +206,12 @@ pub async fn decode_logs(df: DataFrame, raw_log_file_name: &str) -> Result<(), D
                 Ok(decoded_chunk) => {
                     let mut dfs = collected_dfs.lock().await;
                     dfs.push(decoded_chunk);
-                    
-                    tx_clone.send(Ok((i, end, total_height))).await.expect("Failed to send result");
-                },
+
+                    tx_clone
+                        .send(Ok((i, end, total_height)))
+                        .await
+                        .expect("Failed to send result");
+                }
                 Err(e) => {
                     tx_clone.send(Err(e)).await.expect("Failed to send error");
                 }
@@ -205,11 +229,12 @@ pub async fn decode_logs(df: DataFrame, raw_log_file_name: &str) -> Result<(), D
     // Wait for all tasks to complete and check for errors
     while let Some(result) = rx.recv().await {
         match result {
-            Ok((start, end, total_height    )) => {
-                println!("[{}] Processing file: {}, Decoded chunk {} to {} from a chunk size of {} rows", 
-                    Local::now().format("%Y-%m-%d %H:%M:%S"), 
+            Ok((start, end, total_height)) => {
+                println!(
+                    "[{}] Processing file: {}, Decoded chunk {} to {} from a chunk size of {} rows",
+                    Local::now().format("%Y-%m-%d %H:%M:%S"),
                     raw_log_file_name,
-                    start, 
+                    start,
                     end,
                     total_height
                 );
@@ -223,50 +248,54 @@ pub async fn decode_logs(df: DataFrame, raw_log_file_name: &str) -> Result<(), D
         handle.await?;
     }
     let collected_dfs = collected_dfs.lock().await.clone();
-    
+
     // Concatenate and save the final DataFrame
     let final_df = union_dataframes(collected_dfs).await?;
-    let save_path = format!("{}{}", DECODED_FOLDER_PATH, raw_log_file_name.replace("logs", "decoded_logs"));
+    let save_path = format!(
+        "{}{}",
+        DECODED_FOLDER_PATH,
+        raw_log_file_name.replace("logs", "decoded_logs")
+    );
     save_decoded_logs(final_df, &save_path)?;
 
     Ok(())
 }
 
-fn polars_decode_logs(df: DataFrame) -> Result<DataFrame, DecodeError> {
-    let decoded_chuck_df = df.lazy()
-    //apply decode_log_udf, creating a decoded_log column
-        .with_columns([
-            as_struct(vec![col("topic0"), col("topic1"), col("topic2"), col("topic3"), col("data"), col("full_signature")])
-                .map(decode_log_udf, GetOutput::from_type(DataType::String))
-                .alias("decoded_log"),
+pub fn polars_decode_logs(df: DataFrame) -> Result<DataFrame, DecodeError> {
+    let decoded_chuck_df = df
+        .lazy()
+        //apply decode_log_udf, creating a decoded_log column
+        .with_columns([as_struct(vec![
+            col("topic0"),
+            col("topic1"),
+            col("topic2"),
+            col("topic3"),
+            col("data"),
+            col("full_signature"),
         ])
-    //split the udf output column (decoded_log) into 3 columns
-        .with_columns([
-            col("decoded_log")
+        .map(decode_log_udf, GetOutput::from_type(DataType::String))
+        .alias("decoded_log")])
+        //split the udf output column (decoded_log) into 3 columns
+        .with_columns([col("decoded_log")
             .str()
             .split(lit(";"))
             .list()
-            .get(lit(0), false)
-            .alias("event_values")
-        ])
-        .with_columns([
-            col("decoded_log")
+            .get(lit(0))
+            .alias("event_values")])
+        .with_columns([col("decoded_log")
             .str()
             .split(lit(";"))
             .list()
-            .get(lit(1), false)
-            .alias("event_keys")
-        ])
-        .with_columns([
-            col("decoded_log")
+            .get(lit(1))
+            .alias("event_keys")])
+        .with_columns([col("decoded_log")
             .str()
             .split(lit(";"))
             .list()
-            .get(lit(2), false)
-            .alias("event_json")
-        ])
-    // Remove the original decoded_log column
-        .drop(vec!["decoded_log"])
+            .get(lit(2))
+            .alias("event_json")])
+        // Remove the original decoded_log column
+        .select([col("*").exclude(["decoded_log"])])
         .collect()?;
 
     Ok(decoded_chuck_df)
@@ -280,9 +309,7 @@ async fn union_dataframes(dfs: Vec<DataFrame>) -> Result<DataFrame, DecodeError>
     }
 
     // Use Polars' vertical concatenation with union semantics
-    let lazy_dfs: Vec<LazyFrame> = dfs.into_iter().map(
-        |df| df.lazy()
-    ).collect();
+    let lazy_dfs: Vec<LazyFrame> = dfs.into_iter().map(|df| df.lazy()).collect();
     let unioned_df = concat(&lazy_dfs, UnionArgs::default())?.collect()?;
 
     Ok(unioned_df)
@@ -299,7 +326,12 @@ fn decode_log_udf(s: Series) -> PolarsResult<Option<Series>> {
         .into_iter()
         .map(|(topics, data, sig)| {
             decode(sig, topics, data)
-                .map(|event| format!("{:?}; {:?}; {}", event.event_values, event.event_keys, event.event_json))
+                .map(|event| {
+                    format!(
+                        "{:?}; {:?}; {}",
+                        event.event_values, event.event_keys, event.event_json
+                    )
+                })
                 .ok()
         })
         .collect();
@@ -309,7 +341,7 @@ fn decode_log_udf(s: Series) -> PolarsResult<Option<Series>> {
 
 fn extract_log_fields(fields: &[Series]) -> PolarsResult<Vec<(Vec<FixedBytes<32>>, &[u8], &str)>> {
     let zero_filled_topic = vec![0u8; 32];
-    
+
     let fields_topic0 = fields[0].binary()?;
     let fields_topic1 = fields[1].binary()?;
     let fields_topic2 = fields[2].binary()?;
@@ -324,23 +356,29 @@ fn extract_log_fields(fields: &[Series]) -> PolarsResult<Vec<(Vec<FixedBytes<32>
         .zip(fields_topic3.into_iter())
         .zip(fields_data.into_iter())
         .zip(fields_sig.into_iter())
-        .map(|(((((opt_topic0, opt_topic1), opt_topic2), opt_topic3), opt_data), opt_sig)| {
-            let topics = vec![
-                FixedBytes::from_slice(opt_topic0.unwrap_or(&zero_filled_topic)),
-                FixedBytes::from_slice(opt_topic1.unwrap_or(&zero_filled_topic)),
-                FixedBytes::from_slice(opt_topic2.unwrap_or(&zero_filled_topic)),
-                FixedBytes::from_slice(opt_topic3.unwrap_or(&zero_filled_topic)),
-            ];
-            let data = opt_data.unwrap_or(&[]);
-            let sig = opt_sig.unwrap_or("");
+        .map(
+            |(((((opt_topic0, opt_topic1), opt_topic2), opt_topic3), opt_data), opt_sig)| {
+                let topics = vec![
+                    FixedBytes::from_slice(opt_topic0.unwrap_or(&zero_filled_topic)),
+                    FixedBytes::from_slice(opt_topic1.unwrap_or(&zero_filled_topic)),
+                    FixedBytes::from_slice(opt_topic2.unwrap_or(&zero_filled_topic)),
+                    FixedBytes::from_slice(opt_topic3.unwrap_or(&zero_filled_topic)),
+                ];
+                let data = opt_data.unwrap_or(&[]);
+                let sig = opt_sig.unwrap_or("");
 
-            Ok((topics, data, sig))
-        })
+                Ok((topics, data, sig))
+            },
+        )
         .collect()
 }
 
 //use alloy functions to create the necessary structs, and call the decode_log_parts function
-fn decode(full_signature: &str, topics: Vec<FixedBytes<32>>, data: &[u8]) -> Result<ExtDecodedEvent, DecodeError> {
+fn decode(
+    full_signature: &str,
+    topics: Vec<FixedBytes<32>>,
+    data: &[u8],
+) -> Result<ExtDecodedEvent, DecodeError> {
     let event_sig = parse_event_signature(full_signature)?;
     let decoded_event = decode_event_log(&event_sig, topics, data)?;
     let mut event_values: Vec<DynSolValue> = decoded_event.indexed.clone();
@@ -349,30 +387,37 @@ fn decode(full_signature: &str, topics: Vec<FixedBytes<32>>, data: &[u8]) -> Res
     let structured_event = map_event_sig_and_values(&event_sig, &event_values)?;
     let event_keys: Vec<String> = structured_event.iter().map(|p| p.name.clone()).collect();
     let event_json = serde_json::to_string(&structured_event).unwrap_or_else(|_| "[]".to_string());
-    
+
     let extended_decoded_event = ExtDecodedEvent {
         event_values,
         event_keys,
-        event_json
+        event_json,
     };
-    
+
     Ok(extended_decoded_event)
 }
 
 fn parse_event_signature(full_signature: &str) -> Result<Event, DecodeError> {
-    Event::parse(full_signature)
+    Event::parse(full_signature).map_err(|e| DecodeError::DecodingError(e.to_string()))
+}
+
+fn decode_event_log(
+    event: &Event,
+    topics: Vec<FixedBytes<32>>,
+    data: &[u8],
+) -> Result<DecodedEvent, DecodeError> {
+    event
+        .decode_log_parts(topics, data, false)
         .map_err(|e| DecodeError::DecodingError(e.to_string()))
 }
 
-fn decode_event_log(event: &Event, topics: Vec<FixedBytes<32>>, data: &[u8]) -> Result<DecodedEvent, DecodeError> {
-    event.decode_log_parts(topics, data, false)
-        .map_err(|e| DecodeError::DecodingError(e.to_string()))
-}
-
-fn map_event_sig_and_values(event_sig: &Event, event_values: &Vec<DynSolValue>) -> Result<Vec<StructuredEventParam>, DecodeError> {
+fn map_event_sig_and_values(
+    event_sig: &Event,
+    event_values: &Vec<DynSolValue>,
+) -> Result<Vec<StructuredEventParam>, DecodeError> {
     if event_values.len() != event_sig.inputs.len() {
         return Err(DecodeError::DecodingError(
-            "Mismatch between signature length and returned params length".to_string()
+            "Mismatch between signature length and returned params length".to_string(),
         ));
     }
 
