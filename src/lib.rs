@@ -8,7 +8,7 @@ use pyo3_polars::PyDataFrame;
 
 /// Python module for decoding blockchain events
 #[pymodule]
-fn glacier(_py: Python, m: &PyModule) -> PyResult<()> {
+fn glaciers(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(decode_logs, m)?)?;
     Ok(())
 }

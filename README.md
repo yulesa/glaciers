@@ -1,4 +1,4 @@
-# Glacier
+# Glaciers
 
 Fast Ethereum event log decoder in Rust with Python bindings.
 
@@ -29,7 +29,7 @@ uv run python test_e2e.py
 ## Usage Example
 ```python
 import polars as pl
-from glacier import decode_logs
+from glaciers import decode_logs
 
 # Create logs DataFrame with raw event logs
 logs_df = pl.DataFrame({

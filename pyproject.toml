@@ -3,7 +3,7 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "glacier"
+name = "glaciers"
 version = "0.1.0"
 dependencies = [
     "cryo>=0.3.2",

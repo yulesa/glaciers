@@ -1,6 +1,6 @@
 import cryo
 import polars as pl
-from glacier import decode_logs
+from glaciers import decode_logs
 
 # APE token Transfer event
 TRANSFER_EVENT = "Transfer(address indexed from, address indexed to, uint256 value)"
