@@ -2,7 +2,6 @@ use std::{fs::{self, File}, str::FromStr, path::Path};
 use alloy::{json_abi::JsonAbi, primitives::{Address, B256}};
 use polars::prelude::*;
 
-const ABIS_FOLDER_PATH: &str = "ABIs/abi_database";
 
 #[derive(Debug)]
 pub struct EventRow {
@@ -13,15 +12,15 @@ pub struct EventRow {
     id: String,
 }
 
-pub fn read_abis_topic0(path: &str) -> PolarsResult<DataFrame> {
-    let path = Path::new(path);
+pub fn read_abis_topic0(topi0_path: &str, abi_folder_path: &str) -> PolarsResult<DataFrame> {
+    let path = Path::new(topi0_path);
     let existing_df = if path.exists() {
         read_parquet_file(path)?
     } else {
         DataFrame::default()
     };
 
-    let new_rows = read_new_abi_files();
+    let new_rows = read_new_abi_files(abi_folder_path);
     let new_df = create_dataframe_from_event_rows(new_rows)?;
     let diff_df = new_df.join(
         &existing_df,
@@ -47,10 +46,9 @@ fn read_parquet_file(path: &Path) -> PolarsResult<DataFrame> {
     ParquetReader::new(File::open(path)?).finish()
 }
 
-pub fn read_new_abi_files() -> Vec<EventRow> {
-    let abis_path = ABIS_FOLDER_PATH;
-    fs::read_dir(abis_path)
-        .unwrap_or_else(|_| panic!("Unable to read directory {}", abis_path))
+pub fn read_new_abi_files(abi_folder_path: &str) -> Vec<EventRow> {
+    fs::read_dir(abi_folder_path)
+        .unwrap_or_else(|_| panic!("Unable to read directory {}", abi_folder_path))
         .filter_map(|entry| process_abi_file(entry.expect("Unable to read file").path()))
         .flatten()
         .collect()

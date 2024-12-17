@@ -7,6 +7,7 @@ use glaciers_decoder::decoder::DecodeError;
 use thiserror::Error;
 
 const TOPIC0_FILE_PATH: &str = "ABIs/ethereum__abis_topic0.parquet";
+const ABIS_FOLDER_PATH: &str = "ABIs/abi_database";
 const RAW_LOGS_FOLDER_PATH: &str = "data/logs";
 
 #[derive(Error, Debug)]
@@ -24,7 +25,7 @@ enum AppError {
 #[tokio::main]
 async fn main() -> Result<(), AppError> {
     // Read ABI list
-    let abi_list_df = abi_reader::read_abis_topic0(TOPIC0_FILE_PATH)?;
+    let abi_list_df = abi_reader::read_abis_topic0(TOPIC0_FILE_PATH, ABIS_FOLDER_PATH)?;
 
     // Collect log files' paths from RAW_LOGS_FOLDER_PATH
     let log_files: Vec<PathBuf> = fs::read_dir(RAW_LOGS_FOLDER_PATH)?
