@@ -1,9 +1,9 @@
 use std::fs;
 use std::path::PathBuf;
 
-use decoding::abi_reader;
-use decoding::decoder::process_log_files;
-use decoding::decoder::DecodeError;
+use glaciers_decoder::abi_reader;
+use glaciers_decoder::decoder::process_log_files;
+use glaciers_decoder::decoder::DecodeError;
 use thiserror::Error;
 
 const TOPIC0_FILE_PATH: &str = "ABIs/ethereum__abis_topic0.parquet";

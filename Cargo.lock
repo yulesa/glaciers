@@ -1088,20 +1088,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "decoding"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "chrono",
- "polars",
- "serde",
- "serde_json",
- "sysinfo 0.33.0",
- "thiserror",
- "tokio",
-]
-
-[[package]]
 name = "der"
 version = "0.7.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1468,6 +1454,20 @@ name = "gimli"
 version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32085ea23f3234fc7846555e85283ba4de91e21016dc0455a16286d87a292d64"
+
+[[package]]
+name = "glaciers_decoder"
+version = "1.0.0"
+dependencies = [
+ "alloy",
+ "chrono",
+ "polars",
+ "serde",
+ "serde_json",
+ "sysinfo 0.33.0",
+ "thiserror",
+ "tokio",
+]
 
 [[package]]
 name = "glob"
