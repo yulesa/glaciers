@@ -4,13 +4,13 @@ use alloy::primitives::FixedBytes;
 use chrono::Local;
 use polars::prelude::*;
 use serde::Serialize;
+use std::fs;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 use tokio::sync::{mpsc, Mutex, Semaphore};
 use tokio::task;
 
-const DECODED_FOLDER_PATH: &str = "data/decoded/";
 const MAX_CONCURRENT_FILES_DECODING: usize = 16;
 const MAX_CHUNK_THREADS_PER_FILE: usize = 16;
 const DECODED_CHUCK_SIZE: usize = 500_000;
@@ -88,9 +88,16 @@ impl From<DynSolValue> for StringifiedValue {
 }
 
 pub async fn process_log_files(
-    log_files: Vec<PathBuf>,
+    log_folder_path: String,
     topic0_path: String,
 ) -> Result<(), DecodeError> {
+
+    // Collect log files' paths from log_folder_path
+    let log_files: Vec<PathBuf> = fs::read_dir(log_folder_path)?
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .collect();
+
     // Create a semaphore with MAX_CONCURRENT_FILES_DECODING permits
     let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_FILES_DECODING));
     // Create a vector to hold our join handles
@@ -135,6 +142,11 @@ async fn process_log_file(
         .unwrap()
         .to_string_lossy()
         .into_owned();
+    let file_folder_path = log_file_path
+        .parent()
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
 
     println!(
         "[{}] Starting file: {}",
@@ -142,27 +154,42 @@ async fn process_log_file(
         file_path_str
     );
 
-    let ethereum_logs_df = read_parquet_file(&file_path_str)?;
-    let result = process_log_df(ethereum_logs_df, topic0_path, &file_name).await;
+    let ethereum_logs_df = read_parquet_file(&file_path_str)?.collect()?;
+    let decoded_df = process_log_df(ethereum_logs_df, topic0_path).await?;
 
     println!(
         "[{}] Finished file: {}",
         Local::now().format("%Y-%m-%d %H:%M:%S"),
         file_name
     );
+    
+    let save_path = format!(
+        "{}/decoded/{}",
+        file_folder_path,
+        file_name.replace("logs", "decoded_logs")
+    );
+    // create folder if it doesn't exist
+    fs::create_dir_all(file_folder_path.to_string() + "/decoded")?;
 
-    result
+    println!(
+        "[{}] Saving decoded logs to: {}",
+        Local::now().format("%Y-%m-%d %H:%M:%S"),
+        save_path
+    );
+    save_decoded_logs(decoded_df, &save_path)?;
+
+    Ok(())
 }
 
-async fn process_log_df (
-    log_df: LazyFrame,
+pub async fn process_log_df (
+    log_df: DataFrame,
     topic0_path: String,
-    file_path: &String,
-) -> Result<(), DecodeError> {
+) -> Result<DataFrame, DecodeError> {
     let topic0_df = read_parquet_file(&topic0_path)?;
     
     // Perform left join with ABI topic0 list
     let logs_left_join_abi_df = log_df
+        .lazy()
         .join(
             topic0_df,
             [col("topic0")],
@@ -173,9 +200,7 @@ async fn process_log_df (
         .collect()?;
 
     // Split logs files in chunk, decode logs, collected and union results and save in the decoded folder
-    decode_logs(logs_left_join_abi_df, &file_path).await?;
-
-    Ok(())
+    decode_logs(logs_left_join_abi_df).await
 }
 
 // Helper function to create lazydf from a parquet file
@@ -183,7 +208,7 @@ fn read_parquet_file(path: &str) -> Result<LazyFrame, DecodeError> {
     LazyFrame::scan_parquet(path, Default::default()).map_err(|err| DecodeError::PolarsError(err))
 }
 
-pub async fn decode_logs(df: DataFrame, raw_log_file_name: &str) -> Result<(), DecodeError> {
+pub async fn decode_logs(df: DataFrame) -> Result<DataFrame, DecodeError> {
     // Create a semaphore with MAX_THREAD_NUMBER permits
     let semaphore = Arc::new(Semaphore::new(MAX_CHUNK_THREADS_PER_FILE));
     // Create a channel to communicate tasks results
@@ -192,7 +217,7 @@ pub async fn decode_logs(df: DataFrame, raw_log_file_name: &str) -> Result<(), D
     let collected_dfs = Arc::new(Mutex::new(Vec::new()));
     // Vector to hold our tasks handles
     let mut handles = Vec::new();
-
+    
     // Split the DataFrame in chunks and spawn a task for each chunk
     let total_height = df.height();
     let mut i = 0;
@@ -202,45 +227,43 @@ pub async fn decode_logs(df: DataFrame, raw_log_file_name: &str) -> Result<(), D
 
         let sem_clone = semaphore.clone();
         let tx_clone = tx.clone();
-
         let collected_dfs_clone = collected_dfs.clone();
         let handle = task::spawn(async move {
-            let collected_dfs = collected_dfs_clone;
-            let _permit = sem_clone.acquire().await;
 
+            let _permit = sem_clone.acquire().await;
             //Use polars to iterate through each row and decode, communicate through channel the result.
             match polars_decode_logs(chunk_df) {
                 Ok(decoded_chunk) => {
-                    let mut dfs = collected_dfs.lock().await;
-                    dfs.push(decoded_chunk);
+                    // Acquire lock before modifying shared state
+                    let mut dfs = collected_dfs_clone.lock().await;
+                        dfs.push(decoded_chunk);
 
-                    tx_clone
-                        .send(Ok((i, end, total_height)))
-                        .await
-                        .expect("Failed to send result");
+                        tx_clone
+                            .send(Ok((i, end, total_height)))
+                            .await
+                            .expect("Failed to send result. Main thread may have been dropped");
                 }
                 Err(e) => {
-                    tx_clone.send(Err(e)).await.expect("Failed to send error");
+                    tx_clone.send(Err(e)).await.expect("Failed. polars_decode_logs returned an error");
                 }
             }
             // Permit is automatically released when _permit goes out of scope
         });
-
+        
         handles.push(handle);
         i = end;
     }
-
+    
     // Drop the original sender to allow rx to complete
     drop(tx);
-
-    // Wait for all tasks to complete and check for errors
+    
+    // Collect all results
     while let Some(result) = rx.recv().await {
         match result {
             Ok((start, end, total_height)) => {
                 println!(
-                    "[{}] Processing file: {}, Decoded chunk {} to {} from a chunk size of {} rows",
+                    "[{}] Decoded chunk {} to {} from a chunk size of {} rows",
                     Local::now().format("%Y-%m-%d %H:%M:%S"),
-                    raw_log_file_name,
                     start,
                     end,
                     total_height
@@ -249,23 +272,16 @@ pub async fn decode_logs(df: DataFrame, raw_log_file_name: &str) -> Result<(), D
             Err(e) => return Err(e),
         }
     }
-
+        
     // Wait for all spawned tasks to complete
     for handle in handles {
         handle.await?;
     }
+    
     let collected_dfs = collected_dfs.lock().await.clone();
-
+    
     // Concatenate and save the final DataFrame
-    let final_df = union_dataframes(collected_dfs).await?;
-    let save_path = format!(
-        "{}{}",
-        DECODED_FOLDER_PATH,
-        raw_log_file_name.replace("logs", "decoded_logs")
-    );
-    save_decoded_logs(final_df, &save_path)?;
-
-    Ok(())
+    union_dataframes(collected_dfs).await
 }
 
 pub fn polars_decode_logs(df: DataFrame) -> Result<DataFrame, DecodeError> {

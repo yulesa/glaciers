@@ -1,6 +1,3 @@
-use std::fs;
-use std::path::PathBuf;
-
 use glaciers_decoder::abi_reader;
 use glaciers_decoder::decoder::process_log_files;
 use glaciers_decoder::decoder::DecodeError;
@@ -27,14 +24,8 @@ async fn main() -> Result<(), AppError> {
     // Read ABI list
     abi_reader::read_abis_topic0(TOPIC0_FILE_PATH.to_string(), ABIS_FOLDER_PATH.to_string())?;
 
-    // Collect log files' paths from RAW_LOGS_FOLDER_PATH
-    let log_files: Vec<PathBuf> = fs::read_dir(RAW_LOGS_FOLDER_PATH)?
-        .filter_map(|entry| entry.ok())
-        .map(|entry| entry.path())
-        .collect();
-
     // process the log files concurrently
-    process_log_files(log_files, TOPIC0_FILE_PATH.to_string()).await?;
+    process_log_files(RAW_LOGS_FOLDER_PATH.to_string(), TOPIC0_FILE_PATH.to_string()).await?;
 
     Ok(())
 }

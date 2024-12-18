@@ -26,3 +26,4 @@ sysinfo = "0.33.0"
 tokio = { version = "1.42.0", features = ["full"] }
 pyo3 = { version = "0.20.0", features = ["extension-module"] }
 pyo3-polars = "0.10.0"
+pyo3-asyncio = { version = "0.20.0", features = ["tokio-runtime"] }
