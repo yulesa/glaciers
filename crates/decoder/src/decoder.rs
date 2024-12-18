@@ -89,7 +89,7 @@ impl From<DynSolValue> for StringifiedValue {
 
 pub async fn process_log_files(
     log_files: Vec<PathBuf>,
-    abi_list_df: DataFrame,
+    topic0_path: String,
 ) -> Result<(), DecodeError> {
     // Create a semaphore with MAX_CONCURRENT_FILES_DECODING permits
     let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_FILES_DECODING));
@@ -99,14 +99,14 @@ pub async fn process_log_files(
     // Spawn a task for each log file
     for log_file_path in log_files {
         // Clone the DataFrame and semafore for each task
-        let abi_list_df = abi_list_df.clone();
+        let topic0_path = topic0_path.clone();
         let semaphore = semaphore.clone();
 
         // Spawn a tokio task for each file
         let handle = task::spawn(async move {
             // Acquire a permit before processing
             let _permit = semaphore.acquire().await.unwrap();
-            process_log_file(log_file_path, abi_list_df).await
+            process_log_file(log_file_path, topic0_path).await
         });
 
         handles.push(handle);
@@ -127,7 +127,7 @@ pub async fn process_log_files(
 
 async fn process_log_file(
     log_file_path: PathBuf,
-    abi_list_df: DataFrame,
+    topic0_path: String,
 ) -> Result<(), DecodeError> {
     let file_path_str = log_file_path.to_string_lossy().into_owned();
     let file_name = log_file_path
@@ -142,14 +142,29 @@ async fn process_log_file(
         file_path_str
     );
 
-    // Load Ethereum logs for this specific file
-    let ethereum_logs_df = load_ethereum_logs(&file_path_str)?;
+    let ethereum_logs_df = read_parquet_file(&file_path_str)?;
+    let result = process_log_df(ethereum_logs_df, topic0_path, &file_name).await;
 
+    println!(
+        "[{}] Finished file: {}",
+        Local::now().format("%Y-%m-%d %H:%M:%S"),
+        file_name
+    );
+
+    result
+}
+
+async fn process_log_df (
+    log_df: LazyFrame,
+    topic0_path: String,
+    file_path: &String,
+) -> Result<(), DecodeError> {
+    let topic0_df = read_parquet_file(&topic0_path)?;
+    
     // Perform left join with ABI topic0 list
-    let logs_left_join_abi_df = ethereum_logs_df
-        .lazy()
+    let logs_left_join_abi_df = log_df
         .join(
-            abi_list_df.lazy(),
+            topic0_df,
             [col("topic0")],
             [col("topic0")],
             JoinArgs::new(JoinType::Left),
@@ -158,22 +173,14 @@ async fn process_log_file(
         .collect()?;
 
     // Split logs files in chunk, decode logs, collected and union results and save in the decoded folder
-    decode_logs(logs_left_join_abi_df, &file_name).await?;
-
-    println!(
-        "[{}] Finished file: {}",
-        Local::now().format("%Y-%m-%d %H:%M:%S"),
-        file_path_str
-    );
+    decode_logs(logs_left_join_abi_df, &file_path).await?;
 
     Ok(())
 }
 
-// Helper function to create df from the logs' parquet file
-fn load_ethereum_logs(path: &str) -> Result<DataFrame, DecodeError> {
-    LazyFrame::scan_parquet(path, Default::default())?
-        .collect()
-        .map_err(DecodeError::from)
+// Helper function to create lazydf from a parquet file
+fn read_parquet_file(path: &str) -> Result<LazyFrame, DecodeError> {
+    LazyFrame::scan_parquet(path, Default::default()).map_err(|err| DecodeError::PolarsError(err))
 }
 
 pub async fn decode_logs(df: DataFrame, raw_log_file_name: &str) -> Result<(), DecodeError> {
@@ -280,19 +287,19 @@ pub fn polars_decode_logs(df: DataFrame) -> Result<DataFrame, DecodeError> {
             .str()
             .split(lit(";"))
             .list()
-            .get(lit(0), false)
+            .get(lit(0))
             .alias("event_values")])
         .with_columns([col("decoded_log")
             .str()
             .split(lit(";"))
             .list()
-            .get(lit(1), false)
+            .get(lit(1))
             .alias("event_keys")])
         .with_columns([col("decoded_log")
             .str()
             .split(lit(";"))
             .list()
-            .get(lit(2), false)
+            .get(lit(2))
             .alias("event_json")])
         // Remove the original decoded_log column
         .select([col("*").exclude(["decoded_log"])])
