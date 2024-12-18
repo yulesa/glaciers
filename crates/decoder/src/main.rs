@@ -25,7 +25,7 @@ enum AppError {
 #[tokio::main]
 async fn main() -> Result<(), AppError> {
     // Read ABI list
-    let abi_list_df = abi_reader::read_abis_topic0(TOPIC0_FILE_PATH, ABIS_FOLDER_PATH)?;
+    abi_reader::read_abis_topic0(TOPIC0_FILE_PATH.to_string(), ABIS_FOLDER_PATH.to_string())?;
 
     // Collect log files' paths from RAW_LOGS_FOLDER_PATH
     let log_files: Vec<PathBuf> = fs::read_dir(RAW_LOGS_FOLDER_PATH)?
@@ -34,7 +34,7 @@ async fn main() -> Result<(), AppError> {
         .collect();
 
     // process the log files concurrently
-    process_log_files(log_files, abi_list_df).await?;
+    process_log_files(log_files, TOPIC0_FILE_PATH.to_string()).await?;
 
     Ok(())
 }

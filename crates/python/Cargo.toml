@@ -10,7 +10,7 @@ repository.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
 name = "glaciers"
-path = "src/lib.rs"
+path = "rust_src/lib.rs"
 crate-type = ["cdylib"]
 
 [dependencies]

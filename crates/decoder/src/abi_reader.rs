@@ -12,15 +12,15 @@ pub struct EventRow {
     id: String,
 }
 
-pub fn read_abis_topic0(topi0_path: &str, abi_folder_path: &str) -> PolarsResult<DataFrame> {
-    let path = Path::new(topi0_path);
+pub fn read_abis_topic0(topic0_path: String, abi_folder_path: String) -> PolarsResult<DataFrame> {
+    let path = Path::new(&topic0_path);
     let existing_df = if path.exists() {
         read_parquet_file(path)?
     } else {
         DataFrame::default()
     };
 
-    let new_rows = read_new_abi_files(abi_folder_path);
+    let new_rows = read_new_abi_files(&abi_folder_path);
     let new_df = create_dataframe_from_event_rows(new_rows)?;
     let diff_df = new_df.join(
         &existing_df,

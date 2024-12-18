@@ -1,21 +1,20 @@
+use pyo3::prelude::*;
+use pyo3_polars::PyDataFrame;
+use polars::prelude::*;
+use pyo3::exceptions::PyValueError;
 use glaciers_decoder::decoder;
 use glaciers_decoder::abi_reader;
 
-use polars::prelude::*;
-use pyo3::exceptions::PyValueError;
-use pyo3::prelude::*;
-use pyo3_polars::PyDataFrame;
-
-/// Python module for decoding blockchain events
+/// Register in the Python module the functions tbelow hat can be called in Python
 #[pymodule]
 fn glaciers(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(decode_logs, m)?)?;
+    m.add_function(wrap_pyfunction!(polars_decode_logs, m)?)?;
     m.add_function(wrap_pyfunction!(read_abis_topic0, m)?)?;
     Ok(())
 }
 
 #[pyfunction]
-fn read_abis_topic0(topic0_path: &str, abi_folder_path: &str) -> PyResult<PyDataFrame> {
+pub fn read_abis_topic0(topic0_path: String, abi_folder_path: String) -> PyResult<PyDataFrame> {
     abi_reader::read_abis_topic0(topic0_path, abi_folder_path)
         .map_err(|e| PyValueError::new_err(format!("Error reading ABIs: {}", e)))
         .map(|df| PyDataFrame(df))
@@ -35,7 +34,7 @@ fn read_abis_topic0(topic0_path: &str, abi_folder_path: &str) -> PyResult<PyData
 ///     - event_keys: The parameter names
 ///     - event_json: JSON representation of the decoded event
 #[pyfunction]
-fn decode_logs(logs_df: PyDataFrame, abi_df: PyDataFrame) -> PyResult<PyDataFrame> {
+pub fn polars_decode_logs(logs_df: PyDataFrame, abi_df: PyDataFrame) -> PyResult<PyDataFrame> {
     // Convert PyDataFrame to native polars DataFrame
     let logs_df: DataFrame = logs_df.into();
     let abi_df: DataFrame = abi_df.into();
