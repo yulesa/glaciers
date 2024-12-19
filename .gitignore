@@ -1,8 +1,14 @@
 /target
 /local_files
 /data
+__pycache__/
 *.parquet
 *.csv
 *.ipynb
 *.txt
 *.json
+*._tmp
+*.env
+*.venv
+*.so
+*.py[cod]
