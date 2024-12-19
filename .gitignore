@@ -1,6 +1,7 @@
 /target
 /local_files
 /data
+__pycache__/
 *.parquet
 *.csv
 *.ipynb
@@ -10,4 +11,4 @@
 *.env
 *.venv
 *.so
-*.pyc
+*.py[cod]

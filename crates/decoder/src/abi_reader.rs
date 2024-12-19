@@ -1,6 +1,7 @@
 use std::{fs::{self, File}, str::FromStr, path::Path};
 use alloy::{json_abi::JsonAbi, primitives::{Address, B256}};
 use polars::prelude::*;
+use chrono::Local;
 
 
 #[derive(Debug)]
@@ -29,9 +30,15 @@ pub fn read_abis_topic0(topic0_path: String, abi_folder_path: String) -> PolarsR
         JoinArgs::new(JoinType::Anti))?;
     //if diff_df is not empty, print all diff_df rows id's column
     if diff_df.height() == 0 {
-        println!("No new event signatures found in the scanned files.");
+        println!(
+            "[{}] No new event signatures found in the scanned files.",
+            Local::now().format("%Y-%m-%d %H:%M:%S"),
+        );
     } else {
-        println!("New event signatures found found:");
+        println!(
+            "[{}] New event signatures found found:",
+            Local::now().format("%Y-%m-%d %H:%M:%S"),
+        );
         diff_df.column("id").unwrap().iter().for_each(|s| println!("{}", s.to_string()));
     }
 
@@ -57,13 +64,22 @@ pub fn read_new_abi_files(abi_folder_path: &str) -> Vec<EventRow> {
 fn process_abi_file(path: std::path::PathBuf) -> Option<Vec<EventRow>> {
     let address = extract_address_from_path(&path);
     if address.is_some() {
-        println!("Reading file: {:?}", path);
+        println!(
+            "[{}] Reading ABI file: {:?}",
+            Local::now().format("%Y-%m-%d %H:%M:%S"),
+            path
+        );
+
         let json = fs::read_to_string(&path).ok()?;
         let abi: JsonAbi = serde_json::from_str(&json).ok()?;
         Some(abi.events().map(|event| create_event_row(event)).collect())
     } else {
         //skip file if it's not a .json or couldn't be parsed into an address by the extract_address_from_path function
-        println!("Skipping file: {:?}. It's not a .json or filename couldn't be parsed into an address", path);
+        println!(
+            "[{}] Skipping ABI file: {:?}. It's not a .json or filename couldn't be parsed into an address",
+            Local::now().format("%Y-%m-%d %H:%M:%S"),
+            path
+        );
         None
     }
 }

@@ -151,7 +151,7 @@ async fn process_log_file(
         .into_owned();
 
     println!(
-        "[{}] Starting file: {}",
+        "[{}] Starting decoding file: {}",
         Local::now().format("%Y-%m-%d %H:%M:%S"),
         file_path_str
     );
@@ -160,7 +160,7 @@ async fn process_log_file(
     let decoded_df = process_log_df(ethereum_logs_df, topic0_path).await?;
 
     println!(
-        "[{}] Finished file: {}",
+        "[{}] Finished decoding file: {}",
         Local::now().format("%Y-%m-%d %H:%M:%S"),
         file_name
     );
@@ -187,11 +187,6 @@ pub async fn process_log_df (
     log_df: DataFrame,
     topic0_path: String,
 ) -> Result<DataFrame, DecodeError> {
-    println!(
-        "[{}] Processing DataFrame with {} rows",
-        Local::now().format("%Y-%m-%d %H:%M:%S"),
-        log_df.height()
-    );
     let topic0_df = read_parquet_file(&topic0_path)?;
     
     // Perform left join with ABI topic0 list
@@ -246,7 +241,7 @@ pub async fn decode_logs(df: DataFrame) -> Result<DataFrame, DecodeError> {
                         dfs.push(decoded_chunk);
 
                         tx_clone
-                            .send(Ok((i, end, total_height)))
+                            .send(Ok(()))
                             .await
                             .expect("Failed to send result. Main thread may have been dropped");
                 }
@@ -267,15 +262,7 @@ pub async fn decode_logs(df: DataFrame) -> Result<DataFrame, DecodeError> {
     // Collect all results
     while let Some(result) = rx.recv().await {
         match result {
-            Ok((start, end, total_height)) => {
-                println!(
-                    "[{}] Decoded chunk {} to {} from a chunk size of {} rows",
-                    Local::now().format("%Y-%m-%d %H:%M:%S"),
-                    start,
-                    end,
-                    total_height
-                );
-            }
+            Ok(_) => {}
             Err(e) => return Err(e),
         }
     }
