@@ -1,12 +1,10 @@
-use std::fs;
-use std::path::PathBuf;
-
-use decoding::abi_reader;
-use decoding::decoder::process_log_files;
-use decoding::decoder::DecodeError;
+use glaciers_decoder::abi_reader;
+use glaciers_decoder::decoder::process_log_files;
+use glaciers_decoder::decoder::DecodeError;
 use thiserror::Error;
 
 const TOPIC0_FILE_PATH: &str = "ABIs/ethereum__abis_topic0.parquet";
+const ABIS_FOLDER_PATH: &str = "ABIs/abi_database";
 const RAW_LOGS_FOLDER_PATH: &str = "data/logs";
 
 #[derive(Error, Debug)]
@@ -24,16 +22,10 @@ enum AppError {
 #[tokio::main]
 async fn main() -> Result<(), AppError> {
     // Read ABI list
-    let abi_list_df = abi_reader::read_abis_topic0(TOPIC0_FILE_PATH)?;
-
-    // Collect log files' paths from RAW_LOGS_FOLDER_PATH
-    let log_files: Vec<PathBuf> = fs::read_dir(RAW_LOGS_FOLDER_PATH)?
-        .filter_map(|entry| entry.ok())
-        .map(|entry| entry.path())
-        .collect();
+    abi_reader::read_abis_topic0(TOPIC0_FILE_PATH.to_string(), ABIS_FOLDER_PATH.to_string())?;
 
     // process the log files concurrently
-    process_log_files(log_files, abi_list_df).await?;
+    process_log_files(RAW_LOGS_FOLDER_PATH.to_string(), TOPIC0_FILE_PATH.to_string()).await?;
 
     Ok(())
 }

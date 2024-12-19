@@ -1,0 +1,21 @@
+[package]
+name = "glaciers"
+description = "Glaciers is a rust python bindings to decode raw EVM logs into decoded events."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "glaciers"
+path = "rust_src/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+glaciers_decoder = { workspace = true }
+polars = { workspace = true }
+pyo3 = { workspace = true }
+pyo3-polars = { workspace = true }
+pyo3-asyncio = { workspace = true }

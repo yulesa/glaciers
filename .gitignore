@@ -6,3 +6,8 @@
 *.ipynb
 *.txt
 *.json
+*._tmp
+*.env
+*.venv
+*.so
+*.pyc
