@@ -28,7 +28,24 @@ cargo run
 
 Glaciers can also be installed as a python package:
 
-### Using uv, from source (Recommended)
+### From pypi (Recommended)
+
+1. Clone the repository for example files:
+```bash
+git clone https://github.com/yulesa/glaciers
+# Navigate to the project python module folder
+cd glaciers/crates/python
+```
+2. Install Glaciers using pip
+```bash
+pip install glaciers
+```
+3. Run the end-to-end example
+```bash
+python e2e_example.py
+```
+
+### Using uv, from source
 This method requires having uv (Python package and project manager) installed. See [uv](https://docs.astral.sh/uv/getting-started/installation/) for instructions.
 
 1. Clone the repository:
