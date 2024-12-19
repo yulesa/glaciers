@@ -1,5 +1,5 @@
 [package]
-name = "glaciers_python"
+name = "glaciers"
 description = "Glaciers is a rust python bindings to decode raw EVM logs into decoded events."
 version.workspace = true
 edition.workspace = true

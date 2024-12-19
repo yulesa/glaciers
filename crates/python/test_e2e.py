@@ -1,52 +1,53 @@
-import cryo
+import os
+import asyncio
+from os.path import dirname
 import polars as pl
 import glaciers as gl
-from glaciers import decode_logs
-from glaciers import read_abis_topic0
 
 print(f"Glacier functions: {dir(gl)}")
 
-TOPIC0_FILE_PATH = "ethereum__abis_topic0.parquet"
-ABIS_FOLDER_PATH = "abi_database"
+TOPIC0_FILE_PATH = "ABIs/ethereum__abis_topic0.parquet"
+ABIS_FOLDER_PATH = "ABIs/abi_database"
+LOGS_FOLDER_PATH = "data/logs"
+LOGS_FILE_NAME = "ethereum__logs__blocks__18426253_to_18426303_example.parquet"
 
-# Read ABIs from topic0 file
-abis_df = read_abis_topic0(TOPIC0_FILE_PATH, ABIS_FOLDER_PATH)
 
-# Print the first 5 rows of the ABIs DataFrame
-print(f"\nFirst 5 rows of ABIs DataFrame:")
+python_dir = os.path.dirname(os.path.abspath(__file__))
+project_dir =  dirname(dirname(python_dir))+"/"
+print(f"Project dir: {project_dir}")
+logs_df = pl.read_parquet(f"{project_dir}{LOGS_FOLDER_PATH}/{LOGS_FILE_NAME}")
+print(f"Raw logs file: \n{logs_df.head()}")
 
-# # APE token Transfer event
-# TRANSFER_EVENT = "Transfer(address indexed from, address indexed to, uint256 value)"
-# TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
-# APE_CONTRACT = "0x4d224452801ACEd8B2F0aebE155379bb5D594381"
 
-# # Collect raw Transfer events
-# logs_df = cryo.collect(
-#     "logs",
-#     blocks=["18735627:18735727"],
-#     topic0=[TRANSFER_TOPIC],
-#     address=[APE_CONTRACT],
-#     output_format="polars",
-#     max_concurrent_chunks=15,
-#     chunk_size=1000,
-#     inner_request_size=200,
-#     rpc="https://eth.merkle.io",
-# )
 
-# print(f"\nType of logs_df: {type(logs_df)}")
-# print(f"\nColumns in logs_df: {logs_df.columns}")
 
-# # Create ABI DataFrame
-# abi_df = pl.DataFrame(
-#     {
-#         "topic0": [
-#             logs_df["topic0"][0]
-#         ],  # Use first topic0 as they should all be the same
-#         "full_signature": [TRANSFER_EVENT],
-#     }
-# )
+######## Test read_abis_topic0 ########
+abis_df = gl.read_abis_topic0(project_dir+TOPIC0_FILE_PATH, project_dir+ABIS_FOLDER_PATH)
+print(f"\nFirst 5 rows of ABIs DataFrame:\n{abis_df.head()}")
 
-# # Decode the events
-# decoded_df = decode_logs(logs_df, abi_df)
-# print(f"\nDecoded {len(decoded_df)} Transfer events. Sample event:")
-# print(decoded_df.select(["event_values", "event_keys", "event_json"]).head(1))
+
+######## Test decode_log_files ########
+gl.decode_log_files(project_dir+LOGS_FOLDER_PATH, project_dir+TOPIC0_FILE_PATH)
+
+
+######## Test decode_log_files ########
+logs_df = pl.read_parquet(f"{project_dir}{LOGS_FOLDER_PATH}/{LOGS_FILE_NAME}")
+decoded_df = gl.decode_log_df(logs_df, project_dir+TOPIC0_FILE_PATH)
+print(f"\nDecoded Logs DataFrame:\n{decoded_df.head()}")
+
+######## Test polars_decode_logs ########
+# Transfer event
+TRANSFER_EVENT = "Transfer(address indexed from, address indexed to, uint256 value)"
+TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+# Create ABI DataFrame
+abi_df = pl.DataFrame(
+    {
+        "topic0": [
+            TRANSFER_TOPIC
+        ],
+        "full_signature": [TRANSFER_EVENT],
+    }
+)
+# Decode the events
+decoded_df = gl.polars_decode_logs(logs_df, abi_df)
+print(f"\nDecoded Logs DataFrame:\n{decoded_df.head(5)}")

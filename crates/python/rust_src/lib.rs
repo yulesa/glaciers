@@ -4,10 +4,10 @@ use polars::prelude::*;
 use pyo3::exceptions::PyValueError;
 use glaciers_decoder::decoder;
 use glaciers_decoder::abi_reader;
-use pyo3_asyncio::tokio::future_into_py;
 
 /// Register in the Python module the functions tbelow hat can be called in Python
 #[pymodule]
+#[pyo3(name = "_glaciers_rust")]
 fn glaciers(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(read_abis_topic0, m)?)?;
     m.add_function(wrap_pyfunction!(decode_log_files, m)?)?;
@@ -54,7 +54,7 @@ pub fn read_abis_topic0(topic0_path: String, abi_folder_path: String) -> PyResul
 /// Returns a `PyValueError` if there are issues processing the logs
 #[pyfunction]
 pub fn decode_log_files(py: Python<'_>, log_folder_path: String, topic0_path: String) -> PyResult<&PyAny> {
-    future_into_py(py, async move {
+    pyo3_asyncio::tokio::future_into_py(py, async move {
         decoder::process_log_files(log_folder_path, topic0_path).await
         .map_err(|e| PyValueError::new_err(format!("Decoding error: {}", e)))
     })
@@ -78,7 +78,7 @@ pub fn decode_log_files(py: Python<'_>, log_folder_path: String, topic0_path: St
 pub fn decode_log_df(py: Python<'_>, logs_df: PyDataFrame, topic0_path: String) -> PyResult<&PyAny> {
     // Convert PyDataFrame to native polars DataFrame
     let logs_df: DataFrame = logs_df.into();
-    let result = future_into_py(py, async move {
+    let result = pyo3_asyncio::tokio::future_into_py(py, async move {
         match decoder::process_log_df(logs_df, topic0_path).await{
             Ok(df) => Ok(PyDataFrame(df)),
             Err(e) => Err(PyValueError::new_err(format!("Decoding error: {}", e))),
@@ -105,6 +105,16 @@ pub fn polars_decode_logs(logs_df: PyDataFrame, abi_df: PyDataFrame) -> PyResult
     // Convert PyDataFrame to native polars DataFrame
     let logs_df: DataFrame = logs_df.into();
     let abi_df: DataFrame = abi_df.into();
+    let abi_df = abi_df.lazy().with_column(col("topic0")
+            .str()
+            .to_lowercase()
+            .str()
+            .strip_prefix(lit("0x"))
+            .str()
+            .hex_decode(true)
+            .alias("topic0"))
+        .collect()
+        .map_err(|e| PyValueError::new_err(format!("Decoding error: {}", e)))?;
 
     // Join logs with ABI
     let logs_with_abi = logs_df

@@ -145,6 +145,8 @@ async fn process_log_file(
     let file_folder_path = log_file_path
         .parent()
         .unwrap()
+        .parent()
+        .unwrap()
         .to_string_lossy()
         .into_owned();
 
@@ -185,6 +187,11 @@ pub async fn process_log_df (
     log_df: DataFrame,
     topic0_path: String,
 ) -> Result<DataFrame, DecodeError> {
+    println!(
+        "[{}] Processing DataFrame with {} rows",
+        Local::now().format("%Y-%m-%d %H:%M:%S"),
+        log_df.height()
+    );
     let topic0_df = read_parquet_file(&topic0_path)?;
     
     // Perform left join with ABI topic0 list

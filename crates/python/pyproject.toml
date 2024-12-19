@@ -4,8 +4,9 @@ build-backend = "maturin"
 
 [project]
 name = "glaciers"
-version = "0.1.1"
+version = "0.1.0"
 description = "Glaciers is a rust python bindings to decode raw EVM logs into decoded events."
+requires-python = ">=3.12"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
@@ -19,3 +20,8 @@ dependencies = [
     "polars>=1.17.1",
     "pyarrow>=18.1.0",
     ]
+
+[tool.maturin]
+python-source = "python"
+module-name = "glaciers._glaciers_rust"
+features = ["pyo3/extension-module"]

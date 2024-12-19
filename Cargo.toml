@@ -19,7 +19,7 @@ glaciers_decoder = { version = "1.0.0", path = "./crates/decoder" }
 alloy = { version = "0.2.0", features = ["json-abi", "dyn-abi"] }
 serde_json = "1.0.128"
 serde = { version = "1.0.215", features = ["derive"] }
-polars = { version = "0.36.2", features = ["lazy", "parquet", "dtype-struct", "strings", "semi_anti_join"]}
+polars = { version = "0.36.2", features = ["lazy", "parquet", "dtype-struct", "strings", "semi_anti_join", "binary_encoding"]}
 thiserror = "1.0.50"
 chrono = "0.4.38"
 sysinfo = "0.33.0"
