@@ -62,7 +62,6 @@ gl.decode_log_files(logs_folder_path, topic0_file_path)
 print(f"\n Decoded logs saved in the decoded folder.")
 
 
-
 ######## Test decode_log_files ########
 # Decode a logs' DataFrame
 #
@@ -81,6 +80,7 @@ print(f"\n Decoded logs saved in the decoded folder.")
 logs_df = pl.read_parquet(f"{logs_folder_path}/{LOGS_FILE_NAME}")
 decoded_df = gl.decode_log_df(logs_df, topic0_file_path)
 print(f"\nDecoded Logs DataFrame:\n{decoded_df.head()}")
+
 
 ######## Test polars_decode_logs ########
 # Decode dataframe event logs using a minimal ABI definitions dataframe
