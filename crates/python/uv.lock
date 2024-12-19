@@ -2,23 +2,10 @@ version = 1
 requires-python = ">=3.12"
 
 [[package]]
-name = "cryo"
-version = "0.3.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/21/e4/e1b66c9ecb881b71773e935272132f3601ed02da6d3519bdc76e4fb94a82/cryo-0.3.2.tar.gz", hash = "sha256:0411c6168e9e6a125fdadac5263718b3fd0a108d47859b2da742a0729f2a14ee", size = 124236 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/73/01/e03d76d9ebb7b9a0f352153a74828367c2e17c3aab26e9cab9d3d4e43786/cryo-0.3.2-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:699bc8d4cf0c6b04eb7c57e94d2eb31d66637e750ad065cc8ec02c4fce0f68e9", size = 12021560 },
-    { url = "https://files.pythonhosted.org/packages/58/c4/f882424aa11efc88554a04fa493997bdbe6de39ef63da5c715499c43ad04/cryo-0.3.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:7ed466ed629aa114f3b9375f76ba79970df8e9b9b71ffee3fcbc9451b5f612c0", size = 11234357 },
-    { url = "https://files.pythonhosted.org/packages/53/51/616e764de649a9c5cb86c96c5a896246236fbdc79c2a731cf5f039f884dc/cryo-0.3.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:07d848a5c008c888dd105da5e7dc5dc1872234c7ee1bdbc1dd46e43f53a2bab3", size = 15071408 },
-    { url = "https://files.pythonhosted.org/packages/4c/eb/6217386df69423e329f258d05f6420daf40a672ff2d169a43c2f126189f1/cryo-0.3.2-cp312-none-win_amd64.whl", hash = "sha256:25a96a3fdb2189e98232919435ee2360a9bd6335c3d28a22e7cc96a0678ebf66", size = 11333831 },
-]
-
-[[package]]
 name = "glaciers"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "cryo" },
     { name = "maturin" },
     { name = "polars" },
     { name = "pyarrow" },
@@ -26,7 +13,6 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cryo", specifier = ">=0.3.2" },
     { name = "maturin", specifier = ">=1.7.8" },
     { name = "polars", specifier = ">=1.17.1" },
     { name = "pyarrow", specifier = ">=18.1.0" },

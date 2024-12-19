@@ -1,53 +1,106 @@
 # Glaciers
 
-Glaciers is tool for batch decoding raw logs and traces files (traces support coming soon), producing respective decoded tables.It matches raw log and traces entries with ABI event and function signatures, adding context — what each field or value represents and type casting.
+Glaciers is tool for batch decoding raw logs and traces files (traces support coming soon), producing respective decoded tables. It matches raw log and traces entries with ABI event and function signatures, adding context — what each field or value represents and type casting.
 
-## Installation
+## Features
+- Decode Ethereum event logs using ABI definitions
+- Process logs in parallel using Polars DataFrames
+- Python bindings for easy integration
+
+## Rust Installation
 Currently, Glaciers requires manual compilation and execution. To get started:
 
 1. Clone the repository:
-```
+```bash
 git clone https://github.com/yulesa/glaciers
+# Navigate to the project folder
 cd glaciers
 ```
 2. Compile and run the project:
 
-```
+```bash
 cargo run
 ```
+This method requires having rust installed. See [rustup](https://rustup.rs/) for instructions.
+
+
+
+## Python Installation
+
+Glaciers can also be installed as a python package:
+
+### Using uv, from source (Recommended)
+This method requires having uv (Python package and project manager) installed. See [uv](https://docs.astral.sh/uv/getting-started/installation/) for instructions.
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yulesa/glaciers
+# Navigate to the project python module folder
+cd glaciers/crates/python
+```
+2. Install dependencies in .venv
+```bash
+uv sync
+```
+3.  Build the glaciers python module and install the package
+
+```bash
+uv run maturin develop --uv
+
+```
+4.  Run the end-to-end example
+
+```bash
+uv run python e2e_example.py
+```
+
+### Using pip, from source
+
+
+1. Install [maturin](https://www.maturin.rs/), a tool to embed Rust libraries into a Python module. 
+```bash
+pip install maturin
+```
+2. Clone the repository:
+```bash
+git clone https://github.com/yulesa/glaciers
+# Navigate to the project python module folder
+cd glaciers/crates/python
+```
+3.  Build the Rust python module and install the package
+
+```bash
+maturin develop
+```
+4.  Run the end-to-end example
+
+```bash
+uv python e2e_example.py
+```
+
 
 ## Usage examples
 
-Some initial ABIs, a topic0 database, and a raw log file  are provided as examples.
+Some initial ABIs, a topic0 database, and a raw log file are provided as examples.
 
 1. Add new ABIs to the abi_database folder. New ABIs need to be json files and have the file name as a valid contract address.
-
-2. Create a data folder structure in the project folder. If you want to use different names or existing folders, change the const in the Rust files.
-```
-├── data
-
-│   ├── logs
-
-│   ├── decoded
-
-```
-3. Add logs parquet files to the logs folder.  Logs schemas need to have: topic0, topic1, topic2, topic3, data.
-4. Manually set the const in the rust files: ABIS_FOLDER_PATH, DECODED_FOLDER_PATH, MAX_CONCURRENT_FILES_DECODING, MAX_CHUNK_THREADS_PER_FILE, DECODED_CHUCK_SIZE
-5. Compile and Run
+2. Add logs parquet files to the logs folder.  Logs schemas need to have: topic0, topic1, topic2, topic3, data.
+3. Compile and Run
 
 ## Schema
 
 Glaciers will repeat the same schema you have for your input files.
 Input files must contain:
-    - ('topic0', Binary),
-    - ('topic1', Binary),
-    - ('topic2', Binary),
-    - ('topic3', Binary),
-    - ('data', Binary),
+
+    - ('topic0', Binary)
+    - ('topic1', Binary)
+    - ('topic2', Binary)
+    - ('topic3', Binary)
+    - ('data', Binary)
 
 The following columns will be added to your original table:
-Decoded Log Schema:
 
+    Decoded Log Schema:
     - ('full_signature', String): event Transfer(address indexed from, address indexed to, uint256 value)
     - ('name', String): Transfer
     - ('anonymous', Boolean): False
