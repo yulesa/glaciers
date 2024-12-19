@@ -91,7 +91,7 @@ maturin develop
 4.  Run the end-to-end example
 
 ```bash
-uv python e2e_example.py
+python e2e_example.py
 ```
 
 
