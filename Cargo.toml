@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/decoder", "crates/python"]
+members = ["crates/cli", "crates/decoder", "crates/python"]
 
 # Explicitly set the resolver to version 2, which is the default for packages with edition >= 2021 but not virtual workspaces.
 # https://doc.rust-lang.org/edition-guide/rust-2021/default-cargo-resolver.html
@@ -11,7 +11,7 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/yulesa/glaciers"
 repository = "https://github.com/yulesa/glaciers"
-description = "Glaciers is a rust an python tool to decode raw EVM logs into decoded events."
+description = "Glaciers is a rust and python tool to decode raw EVM logs into decoded events."
 exclude = [".github/"]
 
 [workspace.dependencies]
