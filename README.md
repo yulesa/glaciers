@@ -3,98 +3,42 @@
 Glaciers is tool for batch decoding EVM (Ethereum Virtual Machine) raw logs and traces files (traces support coming soon), producing respective decoded tables. It matches raw log and traces entries with ABI event and function signatures, adding context — what each field or value represents and type casting.
 
 ## Features
-- Decode Ethereum event logs using ABI definitions
-- Process logs in parallel using Polars DataFrames
-- Python bindings for easy integration
+- Batch decode EVM event logs files from multiple contracts using an ABI database.
+- Batch decode Polars DataFrames in Python or Rust.
+- Decode multiple logs from single topic0 DataFrame in Python or Rust.
 
-## Rust Installation
-Currently, Glaciers requires manual compilation and execution. Methods requires having rust installed. See [rustup](https://rustup.rs/) for instructions. To get started:
-
-1. Clone the repository:
-```bash
-git clone https://github.com/yulesa/glaciers
-# Navigate to the project folder
-cd glaciers
+## Quick Start
+### Rust Installation
+Library Mode
+```toml
+# Cargo.toml
+[dependencies]
+glaciers = "1.0.0"
 ```
-2. Compile and run the project:
+```rust
+use glaciers::decoder;
+use glaciers::abi_reader;
 
-```bash
-cargo run
+async fn main() -> {
+    abi_reader::read_abis_topic0(TOPIC0_FILE_PATH, ABIS_FOLDER_PATH);
+    decoder::process_log_files(RAW_LOGS_FOLDER_PATH, TOPIC0_FILE_PATH).await;
+}
 ```
-
-
-
-## Python Installation
+### Python Installation
 
 Glaciers can also be installed as a python package:
 
-### From pypi (Recommended)
-
-1. Clone the repository for example files:
 ```bash
+# Clone the repository for example files:
 git clone https://github.com/yulesa/glaciers
 # Navigate to the project python module folder
 cd glaciers/crates/python
-```
-2. Install Glaciers using pip
-```bash
+# Install Glaciers using pip
 pip install glaciers
-```
-3. Run the end-to-end example
-```bash
+# Run the end-to-end example
 python e2e_example.py
 ```
-
-### Using uv, from source
-This method requires having uv (Python package and project manager) installed. See [uv](https://docs.astral.sh/uv/getting-started/installation/) for instructions.
-
-1. Clone the repository:
-```bash
-git clone https://github.com/yulesa/glaciers
-# Navigate to the project python module folder
-cd glaciers/crates/python
-```
-2. Install dependencies in .venv
-```bash
-uv sync
-```
-3.  Build the glaciers python module and install the package
-
-```bash
-uv run maturin develop --uv
-
-```
-4.  Run the end-to-end example
-
-```bash
-uv run python e2e_example.py
-```
-
-### Using pip, from source
-
-
-1. Install [maturin](https://www.maturin.rs/), a tool to embed Rust libraries into a Python module. 
-```bash
-pip install maturin
-```
-2. Clone the repository:
-```bash
-git clone https://github.com/yulesa/glaciers
-# Navigate to the project python module folder
-cd glaciers/crates/python
-```
-3.  Build the Rust python module and install the package
-
-```bash
-maturin develop
-```
-4.  Run the end-to-end example
-
-```bash
-python e2e_example.py
-```
-
-
+For other instalations, visit the [Installation](./docs/installation.md) guide.
 ## Usage examples
 
 Some initial ABIs, a topic0 database, and a raw log file are provided as examples.
@@ -149,4 +93,8 @@ This function performs the following steps:
 - Event Matching: For EVM events, this is a simple Polars join, but for EVM functions, this will encompass an algorithm to find the best match.
 - A future CLI will be used to configure each step in the process. Some variables are already highlighted as constants.
 - Different file types and schemas to come in future versions.
+
+## Roadmap
+
+Visit [Roadmap](./docs/roadmap.md) guide.
 
