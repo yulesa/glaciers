@@ -1,6 +1,6 @@
-use glaciers_decoder::abi_reader;
-use glaciers_decoder::decoder::process_log_files;
-use glaciers_decoder::decoder::DecodeError;
+use glaciers::abi_reader;
+use glaciers::decoder::process_log_files;
+use glaciers::decoder::DecodeError;
 use thiserror::Error;
 
 const TOPIC0_FILE_PATH: &str = "ABIs/ethereum__abis_topic0.parquet";

@@ -12,7 +12,7 @@ name = "glaciers_cli"
 path = "src/main.rs"
 
 [dependencies]
-glaciers_decoder = { workspace = true }
+glaciers = { workspace = true }
 alloy = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }

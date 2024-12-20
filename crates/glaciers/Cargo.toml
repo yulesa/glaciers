@@ -1,6 +1,6 @@
 [package]
-name = "glaciers_decoder"
-description = "Glaciers Decoder is a rust tool to decode raw EVM logs into decoded events."
+name = "glaciers"
+description = "Glaciers is a rust tool to decode raw EVM logs into decoded events."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,7 +8,7 @@ homepage.workspace = true
 repository.workspace = true
 
 [lib]
-name = "glaciers_decoder"
+name = "glaciers"
 path = "src/lib.rs"
 
 [dependencies]

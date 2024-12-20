@@ -1450,12 +1450,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32085ea23f3234fc7846555e85283ba4de91e21016dc0455a16286d87a292d64"
 
 [[package]]
-name = "glaciers_cli"
+name = "glaciers"
 version = "1.0.0"
 dependencies = [
  "alloy",
  "chrono",
- "glaciers_decoder",
  "polars",
  "serde",
  "serde_json",
@@ -1465,11 +1464,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "glaciers_decoder"
+name = "glaciers_cli"
 version = "1.0.0"
 dependencies = [
  "alloy",
  "chrono",
+ "glaciers",
  "polars",
  "serde",
  "serde_json",
@@ -1482,7 +1482,7 @@ dependencies = [
 name = "glaciers_python"
 version = "1.0.0"
 dependencies = [
- "glaciers_decoder",
+ "glaciers",
  "polars",
  "pyo3",
  "pyo3-asyncio",

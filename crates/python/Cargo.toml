@@ -14,7 +14,7 @@ path = "rust_src/lib.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-glaciers_decoder = { workspace = true }
+glaciers = { workspace = true }
 polars = { workspace = true }
 pyo3 = { workspace = true }
 pyo3-polars = { workspace = true }

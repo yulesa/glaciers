@@ -2,13 +2,13 @@ use pyo3::prelude::*;
 use pyo3_polars::PyDataFrame;
 use polars::prelude::*;
 use pyo3::exceptions::PyValueError;
-use glaciers_decoder::decoder;
-use glaciers_decoder::abi_reader;
+use glaciers::decoder;
+use glaciers::abi_reader;
 
 /// Register in the Python module the functions tbelow hat can be called in Python
 #[pymodule]
-#[pyo3(name = "_glaciers_rust")]
-fn glaciers(_py: Python, m: &PyModule) -> PyResult<()> {
+#[pyo3(name = "_glaciers_python")]
+fn glaciers_python(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(read_abis_topic0, m)?)?;
     m.add_function(wrap_pyfunction!(decode_log_files, m)?)?;
     m.add_function(wrap_pyfunction!(decode_log_df, m)?)?;

@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/cli", "crates/decoder", "crates/python"]
+members = ["crates/cli", "crates/glaciers", "crates/python"]
 
 # Explicitly set the resolver to version 2, which is the default for packages with edition >= 2021 but not virtual workspaces.
 # https://doc.rust-lang.org/edition-guide/rust-2021/default-cargo-resolver.html
@@ -15,7 +15,7 @@ description = "Glaciers is a rust and python tool to decode raw EVM logs into de
 exclude = [".github/"]
 
 [workspace.dependencies]
-glaciers_decoder = { version = "1.0.0", path = "./crates/decoder" }
+glaciers = { version = "1.0.0", path = "./crates/glaciers" }
 glaciers_cli = { version = "1.0.0", path = "./crates/cli" }
 glaciers_python = { version = "1.0.0", path = "./crates/python" }
 alloy = { version = "0.2.0", features = ["json-abi", "dyn-abi"] }

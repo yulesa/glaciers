@@ -4,8 +4,8 @@ async def async_decode_log_df(
     logs_df: pl.DataFrame,
     topic0_path: str,
 ) -> pl.DataFrame:
-    from . import _glaciers_rust
-    result: pl.DataFrame = await _glaciers_rust.decode_log_df(logs_df, topic0_path)
+    from . import _glaciers_python
+    result: pl.DataFrame = await _glaciers_python.decode_log_df(logs_df, topic0_path)
     return result
 
 def decode_log_df(
