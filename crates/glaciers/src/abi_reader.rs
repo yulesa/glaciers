@@ -16,10 +16,26 @@ pub enum AbiReadError {
     InvalidAbiDf(String),
 }
 
+
+#[derive(Debug, Clone)]
+enum Hash {
+    Hash32(FixedBytes<32>),
+    Hash4(FixedBytes<4>)
+}
+
+impl Hash {
+    fn as_bytes(&self) -> Vec<u8> {
+        match self {
+            Hash::Hash32(h) => h.as_slice().to_vec(),
+            Hash::Hash4(h) => h.as_slice().to_vec(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct AbiItemRow {
     address: String,
-    hash: FixedBytes<32>,
+    hash: Hash,
     full_signature: String,
     name: String,
     anonymous: Option<bool>,
@@ -27,23 +43,24 @@ pub struct AbiItemRow {
     id: String,
 }
 
-pub fn read_abis_df(topic0_path: String, abi_folder_path: String) -> Result<DataFrame, AbiReadError> {
-    let path = Path::new(&topic0_path);
+pub fn update_abi_df(abi_df_path: String, abi_folder_path: String) -> Result<DataFrame, AbiReadError> {
+    let path = Path::new(&abi_df_path);
     let existing_df = if path.exists() {
         read_parquet_file(path)?
     } else {
-        return Ok(DataFrame::new(vec![
-            Series::new("address", Vec::<String>::new()),
-            Series::new("hash", Vec::<Vec<u8>>::new()),
-            Series::new("full_signature", Vec::<String>::new()),
-            Series::new("name", Vec::<String>::new()),
-            Series::new("anonymous", Vec::<Option<bool>>::new()),
-            Series::new("statemutability", Vec::<Option<String>>::new()),
-            Series::new("id", Vec::<String>::new()),
-        ])?);
+        // Create a empty dataframe with a schema so joins don't fail for missing id field.
+        DataFrame::new(vec![
+            Series::new_empty("address", &DataType::String),
+            Series::new_empty("hash", &DataType::Binary),
+            Series::new_empty("full_signature", &DataType::String),
+            Series::new_empty("name", &DataType::String),
+            Series::new_empty("anonymous", &DataType::Boolean),
+            Series::new_empty("statemutability", &DataType::String),
+            Series::new_empty("id", &DataType::String),
+        ])?
     };
 
-    let new_df = read_new_abi_files(&abi_folder_path)?;
+    let new_df = read_new_abi_folder(&abi_folder_path)?;
     let diff_df = new_df.clone().join(
         &existing_df,
         ["id"],
@@ -60,7 +77,7 @@ pub fn read_abis_df(topic0_path: String, abi_folder_path: String) -> Result<Data
             "[{}] New event signatures found found:",
             Local::now().format("%Y-%m-%d %H:%M:%S"),
         );
-        diff_df.column("id").unwrap().iter().for_each(|s| println!("{}", s.to_string()));
+        diff_df.column("id")?.as_series().iter().for_each(|s| println!("{}", s));
     }
     let mut combined_df = if existing_df.height() > 0 {
         concat_dataframes(vec![existing_df.lazy(), diff_df.lazy()])?
@@ -79,7 +96,7 @@ fn read_parquet_file(path: &Path) -> Result<DataFrame, AbiReadError> {
         .map_err(AbiReadError::PolarsError)
 }
 
-pub fn read_new_abi_files(abi_folder_path: &str) -> Result<DataFrame, AbiReadError> {
+pub fn read_new_abi_folder(abi_folder_path: &str) -> Result<DataFrame, AbiReadError> {
     let paths = fs::read_dir(abi_folder_path)
         .map_err(|e| AbiReadError::InvalidFolder(e.to_string()))?;
     
@@ -87,7 +104,7 @@ pub fn read_new_abi_files(abi_folder_path: &str) -> Result<DataFrame, AbiReadErr
     let processed_frames: Vec<DataFrame> = paths
         .filter_map(|entry| {
             let path = entry.ok()?.path();
-            match process_abi_file(path) {
+            match read_new_abi_file(path) {
                 Ok(df) => Some(df),
                 Err(_) => None,  // Silently skip invalid files
             }
@@ -96,15 +113,14 @@ pub fn read_new_abi_files(abi_folder_path: &str) -> Result<DataFrame, AbiReadErr
     
     // Handle case where no valid files were processed
     if processed_frames.is_empty() {
-        // Return empty Dataframe with schema
         return Ok(DataFrame::new(vec![
-            Series::new("address", Vec::<String>::new()),
-            Series::new("hash", Vec::<Vec<u8>>::new()),
-            Series::new("full_signature", Vec::<String>::new()),
-            Series::new("name", Vec::<String>::new()),
-            Series::new("anonymous", Vec::<Option<bool>>::new()),
-            Series::new("statemutability", Vec::<Option<String>>::new()),
-            Series::new("id", Vec::<String>::new()),
+            Series::new_empty("address", &DataType::String),
+            Series::new_empty("hash", &DataType::Binary),
+            Series::new_empty("full_signature", &DataType::String),
+            Series::new_empty("name", &DataType::String),
+            Series::new_empty("anonymous", &DataType::Boolean),
+            Series::new_empty("statemutability", &DataType::String),
+            Series::new_empty("id", &DataType::String),
         ])?);
     }
     
@@ -118,7 +134,7 @@ pub fn read_new_abi_files(abi_folder_path: &str) -> Result<DataFrame, AbiReadErr
     Ok(combined_df)
 }
 
-fn process_abi_file(path: std::path::PathBuf) -> Result<DataFrame, AbiReadError> {
+fn read_new_abi_file(path: std::path::PathBuf) -> Result<DataFrame, AbiReadError> {
     let address = extract_address_from_path(&path);
     if let Some(address) = address {
         println!(
@@ -130,7 +146,7 @@ fn process_abi_file(path: std::path::PathBuf) -> Result<DataFrame, AbiReadError>
         let json = fs::read_to_string(&path).map_err(|e| AbiReadError::InvalidAbiFile(e.to_string()))?;
         let abi: JsonAbi = serde_json::from_str(&json).map_err(|e| AbiReadError::InvalidAbiFile(e.to_string()))?;
         // let a = Some(abi.events().map(|event| create_event_row(event)).collect());
-        process_abi_itens(abi, address)
+        read_new_abi_item(abi, address)
     } else {
         //skip file if it's not a .json or couldn't be parsed into an address by the extract_address_from_path function
         println!(
@@ -144,7 +160,7 @@ fn process_abi_file(path: std::path::PathBuf) -> Result<DataFrame, AbiReadError>
     }
 }
 
-fn process_abi_itens(abi: JsonAbi, address: Address) -> Result<DataFrame, AbiReadError>{
+fn read_new_abi_item(abi: JsonAbi, address: Address) -> Result<DataFrame, AbiReadError>{
     let function_rows: Vec<AbiItemRow> = abi.functions().map(|function| create_function_row(function, address)).collect();
     let event_rows: Vec<AbiItemRow> = abi.events().map(|event| create_event_row(event, address)).collect();
     let abi_rows = [function_rows, event_rows].concat();
@@ -162,7 +178,7 @@ fn extract_address_from_path(path: &Path) -> Option<Address> {
 fn create_event_row(event: &alloy::json_abi::Event, address: Address) -> AbiItemRow {
     let event_row = AbiItemRow {
         address: address.to_string(),
-        hash: event.selector(),
+        hash: Hash::Hash32(event.selector()),
         full_signature: event.full_signature(),
         name: event.name.to_string(),
         anonymous: Some(event.anonymous),
@@ -181,7 +197,7 @@ fn create_function_row(function: &alloy::json_abi::Function, address: Address) -
     };
     let function_row = AbiItemRow {
         address: address.to_string(),
-        hash: FixedBytes::from_slice(&[&[0u8; 28], function.selector().as_slice()].concat()),
+        hash: Hash::Hash4(function.selector()),
         full_signature: function.full_signature(),
         name: function.name.to_string(),
         anonymous: None,
@@ -193,13 +209,13 @@ fn create_function_row(function: &alloy::json_abi::Function, address: Address) -
 
 pub fn create_dataframe_from_rows(rows: Vec<AbiItemRow>) -> Result<DataFrame, AbiReadError> {
     let columns = vec![
-        Series::new("address", rows.iter().map(|r| r.address.clone()).collect::<Vec<String>>()),
-        Series::new("hash", rows.iter().map(|r| r.hash.as_slice()).collect::<Vec<&[u8]>>()),
-        Series::new("full_signature", rows.iter().map(|r| r.full_signature.clone()).collect::<Vec<String>>()),
-        Series::new("name", rows.iter().map(|r| r.name.clone()).collect::<Vec<String>>()),
-        Series::new("anonymous", rows.iter().map(|r| r.anonymous).collect::<Vec<Option<bool>>>()),
-        Series::new("state_mutability", rows.iter().map(|r| r.statemutability.clone()).collect::<Vec<Option<String>>>()),
-        Series::new("id", rows.iter().map(|r| r.id.clone()).collect::<Vec<String>>()),
+        Series::new("address".into(), rows.iter().map(|r| r.address.clone()).collect::<Vec<String>>()),
+        Series::new("hash".into(), rows.iter().map(|r| r.hash.as_bytes()).collect::<Vec<Vec<u8>>>()),
+        Series::new("full_signature".into(), rows.iter().map(|r| r.full_signature.clone()).collect::<Vec<String>>()),
+        Series::new("name".into(), rows.iter().map(|r| r.name.clone()).collect::<Vec<String>>()),
+        Series::new("anonymous".into(), rows.iter().map(|r| r.anonymous).collect::<Vec<Option<bool>>>()),
+        Series::new("state_mutability".into(), rows.iter().map(|r| r.statemutability.clone()).collect::<Vec<Option<String>>>()),
+        Series::new("id".into(), rows.iter().map(|r| r.id.clone()).collect::<Vec<String>>()),
     ];
 
     DataFrame::new(columns).map_err(AbiReadError::PolarsError)
