@@ -134,7 +134,7 @@ pub fn read_new_abi_folder(abi_folder_path: &str) -> Result<DataFrame, AbiReadEr
     Ok(combined_df)
 }
 
-fn read_new_abi_file(path: std::path::PathBuf) -> Result<DataFrame, AbiReadError> {
+pub fn read_new_abi_file(path: std::path::PathBuf) -> Result<DataFrame, AbiReadError> {
     let address = extract_address_from_path(&path);
     if let Some(address) = address {
         println!(
@@ -160,7 +160,7 @@ fn read_new_abi_file(path: std::path::PathBuf) -> Result<DataFrame, AbiReadError
     }
 }
 
-fn read_new_abi_item(abi: JsonAbi, address: Address) -> Result<DataFrame, AbiReadError>{
+pub fn read_new_abi_item(abi: JsonAbi, address: Address) -> Result<DataFrame, AbiReadError>{
     let function_rows: Vec<AbiItemRow> = abi.functions().map(|function| create_function_row(function, address)).collect();
     let event_rows: Vec<AbiItemRow> = abi.events().map(|event| create_event_row(event, address)).collect();
     let abi_rows = [function_rows, event_rows].concat();

@@ -89,7 +89,7 @@ impl From<DynSolValue> for StringifiedValue {
 
 pub async fn process_log_files(
     log_folder_path: String,
-    topic0_path: String,
+    abi_df_path: String,
 ) -> Result<(), DecodeError> {
 
     // Collect log files' paths from log_folder_path
@@ -106,14 +106,14 @@ pub async fn process_log_files(
     // Spawn a task for each log file
     for log_file_path in log_files {
         // Clone the DataFrame and semafore for each task
-        let topic0_path = topic0_path.clone();
+        let abi_df_path = abi_df_path.clone();
         let semaphore = semaphore.clone();
 
         // Spawn a tokio task for each file
         let handle = task::spawn(async move {
             // Acquire a permit before processing
             let _permit = semaphore.acquire().await.unwrap();
-            process_log_file(log_file_path, topic0_path).await
+            process_log_file(log_file_path, abi_df_path).await
         });
 
         handles.push(handle);
@@ -134,7 +134,7 @@ pub async fn process_log_files(
 
 async fn process_log_file(
     log_file_path: PathBuf,
-    topic0_path: String,
+    abi_df_path: String,
 ) -> Result<(), DecodeError> {
     let file_path_str = log_file_path.to_string_lossy().into_owned();
     let file_name = log_file_path
@@ -157,7 +157,7 @@ async fn process_log_file(
     );
 
     let ethereum_logs_df = read_parquet_file(&file_path_str)?.collect()?;
-    let decoded_df = process_log_df(ethereum_logs_df, topic0_path).await?;
+    let decoded_df = process_log_df(ethereum_logs_df, abi_df_path).await?;
 
     println!(
         "[{}] Finished decoding file: {}",
@@ -185,20 +185,25 @@ async fn process_log_file(
 
 pub async fn process_log_df (
     log_df: DataFrame,
-    topic0_path: String,
+    abi_df_path: String,
 ) -> Result<DataFrame, DecodeError> {
-    let topic0_df = read_parquet_file(&topic0_path)?;
-    
+    let abi_df = read_parquet_file(&abi_df_path)?;
+    //select only the relevant columns
+    let abi_df = abi_df.select([
+        col("hash"),
+        col("full_signature"),
+        col("name"),
+        col("anonymous")
+    ]);
     // Perform left join with ABI topic0 list
     let logs_left_join_abi_df = log_df
         .lazy()
         .join(
-            topic0_df,
+            abi_df,
             [col("topic0")],
-            [col("topic0")],
+            [col("hash")],
             JoinArgs::new(JoinType::Left),
         )
-        .select([col("*").exclude(["id"])])
         .collect()?;
 
     // Split logs files in chunk, decode logs, collected and union results and save in the decoded folder
@@ -337,7 +342,7 @@ fn decode_log_udf(s: Series) -> PolarsResult<Option<Series>> {
     let series_struct_array: &StructChunked = s.struct_()?;
     let fields = series_struct_array.fields();
     //extract topics, data and signature from the df struct arrays
-    let topics_data_sig = extract_log_fields(fields)?;
+    let topics_data_sig = extract_log_fields(&fields)?;
 
     let udf_output: StringChunked = topics_data_sig
         .into_iter()

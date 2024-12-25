@@ -4,7 +4,7 @@ from os.path import dirname
 import polars as pl
 import glaciers as gl
 
-TOPIC0_FILE_PATH = "ABIs/ethereum__abis_topic0.parquet"
+ABI_FILE_PATH = "ABIs/ethereum__abis.parquet"
 ABIS_FOLDER_PATH = "ABIs/abi_database"
 LOGS_FOLDER_PATH = "data/logs"
 LOGS_FILE_NAME = "ethereum__logs__blocks__18426253_to_18426303_example.parquet"
@@ -14,7 +14,7 @@ python_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir =  dirname(dirname(python_dir))+"/"
 print(f"Project dir: {project_dir}")
 
-topic0_file_path = project_dir+TOPIC0_FILE_PATH
+abi_file_path = project_dir+ABI_FILE_PATH
 abis_folder_path = project_dir+ABIS_FOLDER_PATH
 logs_folder_path = project_dir+LOGS_FOLDER_PATH
 
@@ -24,14 +24,14 @@ print(f"Raw logs file: \n{logs_df.head()}")
 
 
 
-######## Test read_abis_topic0 ########
-# Reads ABIs in a folder and append to the topic0 parquet file
+######## Test update_abi_df ########
+# Reads ABIs in a folder and append to the abi parquet file
 #
-# This function loads each ABI definitions from a ABI folder and append the new topic0 and event signatures
-# into an existing topic0 (parquet file) the unique entries. Function also output the dataframe.
+# This function loads each ABI definitions from a ABI folder and append the new itens (events and functions)
+# into an existing abi DF (parquet file) the new unique entries. Function also output the dataframe.
 #
 # # Arguments
-# - `topic0_path`: Path to the parquet file containing the existing DataFrame.
+# - `abi_file_path`: Path to the parquet file containing the existing DataFrame.
 # - `abi_folder_path`: Path to the folder containing ABI JSON files
 #
 # # Returns
@@ -39,8 +39,93 @@ print(f"Raw logs file: \n{logs_df.head()}")
 #
 # # Errors
 # Returns a `PyValueError` if there are issues reading or processing the ABIs
-abis_df = gl.read_abis_topic0(topic0_file_path, abis_folder_path)
+abis_df = gl.update_abi_df(abi_file_path, abis_folder_path)
 print(f"\nFirst 5 rows of ABIs DataFrame:\n{abis_df.head()}")
+
+######## Test read_new_abi_folder ########
+# Reads ABIs in a folder
+#
+# This function loads ABI definitions from a folder and creates a DataFrame containing
+# all functions and events found in the ABI files.
+#
+# # Arguments
+# - `abi_folder_path`: Path to the folder containing ABI JSON files
+#
+# # Returns
+# A `PyResult` containing a `PyDataFrame` with all functions and events
+#
+# # Errors
+# Returns a `PyValueError` if there are issues reading or processing the ABIs
+folder_df = gl.read_new_abi_folder(abis_folder_path)
+print(f"\nABIs DataFrame from folder:\n{folder_df.head()}")
+
+
+######## Test read_new_abi_file ########
+# Reads a single ABI file
+#
+# This function loads ABI definitions from a file and creates a DataFrame containing
+# all functions and events found in the ABI file.
+#
+# # Arguments
+# - `path`: Path to the ABI JSON file
+#
+# # Returns
+# A `PyResult` containing a `PyDataFrame` with all functions and events
+#
+# # Errors
+# Returns a `PyValueError` if there are issues reading or processing the ABI
+abi_file = os.path.join(abis_folder_path, os.listdir(abis_folder_path)[0])  # Get first ABI file
+file_df = gl.read_new_abi_file(abi_file)
+print(f"\nABIs DataFrame from single file:\n{file_df.head()}")
+
+
+######## Test read_new_abi_item ########
+# Reads a single ABI JSON string
+#
+# This function loads ABI definitions from a JSON string and creates a DataFrame containing
+# all functions and events found in the ABI.
+#
+# # Arguments
+# - `abi`: ABI JSON string
+# - `address`: Contract address as string
+#
+# # Returns
+# A `PyResult` containing a `PyDataFrame` with all functions and events
+#
+# # Errors
+# Returns a `PyValueError` if there are issues reading or processing the ABI
+with open(abi_file, 'r') as f:
+    abi_json = """
+        [{
+            "anonymous": false,
+            "inputs": [
+                {
+                    "indexed": true,
+                    "internalType": "address",
+                    "name": "from",
+                    "type": "address"
+                },
+                {
+                    "indexed": true,
+                    "internalType": "address",
+                    "name": "to",
+                    "type": "address"
+                },
+                {
+                    "indexed": false,
+                    "internalType": "uint256",
+                    "name": "value",
+                    "type": "uint256"
+                }
+            ],
+            "name": "Transfer",
+            "type": "event"
+        }]
+    """
+    address = "0xE672E0E0101A7F58d728751E2a5e6Da5Ff1FDa64"
+    item_df = gl.read_new_abi_item(abi_json, address)
+    print(f"\nABIs DataFrame from JSON string:\n{item_df.head()}")
+
 
 
 ######## Test decode_log_files ########
@@ -58,7 +143,7 @@ print(f"\nFirst 5 rows of ABIs DataFrame:\n{abis_df.head()}")
 #
 # # Errors
 # Returns a `PyValueError` if there are issues processing the logs
-gl.decode_log_files(logs_folder_path, topic0_file_path)
+gl.decode_log_files(logs_folder_path, abi_file_path)
 print(f"\n Decoded logs saved in the decoded folder.")
 
 
@@ -78,7 +163,7 @@ print(f"\n Decoded logs saved in the decoded folder.")
 # # Errors
 # Returns a `PyValueError` if there are issues processing the logs
 logs_df = pl.read_parquet(f"{logs_folder_path}/{LOGS_FILE_NAME}")
-decoded_df = gl.decode_log_df(logs_df, topic0_file_path)
+decoded_df = gl.decode_log_df(logs_df, abi_file_path)
 print(f"\nDecoded Logs DataFrame:\n{decoded_df.head()}")
 
 

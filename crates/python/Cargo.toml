@@ -16,6 +16,8 @@ crate-type = ["cdylib"]
 [dependencies]
 glaciers = { workspace = true }
 polars = { workspace = true }
+alloy = { workspace = true }
+serde_json = { workspace = true }
 pyo3 = { workspace = true }
 pyo3-polars = { workspace = true }
 pyo3-asyncio = { workspace = true }
