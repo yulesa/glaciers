@@ -2,7 +2,6 @@
 /local_files
 /data
 __pycache__/
-*.parquet
 *.csv
 *.ipynb
 *.txt
