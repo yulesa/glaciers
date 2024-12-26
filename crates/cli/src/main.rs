@@ -1,5 +1,5 @@
 use glaciers::abi_reader;
-use glaciers::decoder::process_log_files;
+use glaciers::decoder::decode_log_folder;
 use glaciers::decoder::DecodeError;
 use thiserror::Error;
 
@@ -36,7 +36,7 @@ async fn main() -> Result<(), AppError> {
     abi_reader::update_abi_df(ABI_DF_FILE_PATH.to_string(), ABIS_FOLDER_PATH.to_string())?;
 
     // process the log files concurrently
-    process_log_files(RAW_LOGS_FOLDER_PATH.to_string(), ABI_DF_FILE_PATH.to_string()).await?;
+    decode_log_folder(RAW_LOGS_FOLDER_PATH.to_string(), ABI_DF_FILE_PATH.to_string()).await?;
 
     Ok(())
 }

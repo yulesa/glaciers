@@ -87,7 +87,7 @@ impl From<DynSolValue> for StringifiedValue {
     }
 }
 
-pub async fn process_log_files(
+pub async fn decode_log_folder(
     log_folder_path: String,
     abi_df_path: String,
 ) -> Result<(), DecodeError> {
@@ -113,7 +113,7 @@ pub async fn process_log_files(
         let handle = task::spawn(async move {
             // Acquire a permit before processing
             let _permit = semaphore.acquire().await.unwrap();
-            process_log_file(log_file_path, abi_df_path).await
+            decode_log_file(log_file_path, abi_df_path).await
         });
 
         handles.push(handle);
@@ -132,7 +132,7 @@ pub async fn process_log_files(
     Ok(())
 }
 
-async fn process_log_file(
+async fn decode_log_file(
     log_file_path: PathBuf,
     abi_df_path: String,
 ) -> Result<(), DecodeError> {
@@ -157,7 +157,7 @@ async fn process_log_file(
     );
 
     let ethereum_logs_df = read_parquet_file(&file_path_str)?.collect()?;
-    let decoded_df = process_log_df(ethereum_logs_df, abi_df_path).await?;
+    let decoded_df = decode_log_df(ethereum_logs_df, abi_df_path).await?;
 
     println!(
         "[{}] Finished decoding file: {}",
@@ -183,7 +183,7 @@ async fn process_log_file(
     Ok(())
 }
 
-pub async fn process_log_df (
+pub async fn decode_log_df (
     log_df: DataFrame,
     abi_df_path: String,
 ) -> Result<DataFrame, DecodeError> {

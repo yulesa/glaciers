@@ -79,7 +79,7 @@ file_df = gl.read_new_abi_file(abi_file)
 print(f"\nABIs DataFrame from single file:\n{file_df.head()}")
 
 
-######## Test read_new_abi_item ########
+######## Test read_new_abi_json ########
 # Reads a single ABI JSON string
 #
 # This function loads ABI definitions from a JSON string and creates a DataFrame containing
@@ -123,12 +123,12 @@ with open(abi_file, 'r') as f:
         }]
     """
     address = "0xE672E0E0101A7F58d728751E2a5e6Da5Ff1FDa64"
-    item_df = gl.read_new_abi_item(abi_json, address)
+    item_df = gl.read_new_abi_json(abi_json, address)
     print(f"\nABIs DataFrame from JSON string:\n{item_df.head()}")
 
 
 
-######## Test decode_log_files ########
+######## Test decode_log_folder ########
 # Decode a folder of logs in parquet format.
 #
 # This function takes a logs folder path and a topic0 parquet file path. It iterate through 
@@ -143,11 +143,11 @@ with open(abi_file, 'r') as f:
 #
 # # Errors
 # Returns a `PyValueError` if there are issues processing the logs
-gl.decode_log_files(logs_folder_path, abi_file_path)
+gl.decode_log_folder(logs_folder_path, abi_file_path)
 print(f"\n Decoded logs saved in the decoded folder.")
 
 
-######## Test decode_log_files ########
+######## Test decode_log_df ########
 # Decode a logs' DataFrame
 #
 # This function takes a raw logs' DataFrame and a topic0 parquet file path and decode the df

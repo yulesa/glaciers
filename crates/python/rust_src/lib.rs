@@ -17,7 +17,7 @@ fn glaciers_python(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(read_new_abi_folder, m)?)?;
     m.add_function(wrap_pyfunction!(read_new_abi_file, m)?)?;
     m.add_function(wrap_pyfunction!(read_new_abi_json, m)?)?;
-    m.add_function(wrap_pyfunction!(decode_log_files, m)?)?;
+    m.add_function(wrap_pyfunction!(decode_log_folder, m)?)?;
     m.add_function(wrap_pyfunction!(decode_log_df, m)?)?;
     m.add_function(wrap_pyfunction!(polars_decode_logs, m)?)?;
     Ok(())
@@ -126,9 +126,9 @@ pub fn read_new_abi_json(abi: String, address: String) -> PyResult<PyDataFrame> 
 /// # Errors
 /// Returns a `PyValueError` if there are issues processing the logs
 #[pyfunction]
-pub fn decode_log_files(py: Python<'_>, log_folder_path: String, topic0_path: String) -> PyResult<&PyAny> {
+pub fn decode_log_folder(py: Python<'_>, log_folder_path: String, topic0_path: String) -> PyResult<&PyAny> {
     pyo3_asyncio::tokio::future_into_py(py, async move {
-        decoder::process_log_files(log_folder_path, topic0_path).await
+        decoder::decode_log_folder(log_folder_path, topic0_path).await
         .map_err(|e| PyValueError::new_err(format!("Decoding error: {}", e)))
     })
 }
@@ -152,7 +152,7 @@ pub fn decode_log_df(py: Python<'_>, logs_df: PyDataFrame, topic0_path: String) 
     // Convert PyDataFrame to native polars DataFrame
     let logs_df:DataFrame = logs_df.into();
     let result = pyo3_asyncio::tokio::future_into_py(py, async move {
-        match decoder::process_log_df(logs_df, topic0_path).await {
+        match decoder::decode_log_df(logs_df, topic0_path).await {
             Ok(df) => Ok(PyDataFrame(df)),
             Err(e) => Err(PyValueError::new_err(format!("Decoding error: {}", e))),
         }

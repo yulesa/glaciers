@@ -74,10 +74,11 @@ pub fn update_abi_df(abi_df_path: String, abi_folder_path: String) -> Result<Dat
         );
     } else {
         println!(
-            "[{}] New event signatures found found:",
+            "[{}] New event signatures found found. 10 new lines example: {}",
             Local::now().format("%Y-%m-%d %H:%M:%S"),
+            diff_df
         );
-        diff_df.column("id")?.as_series().iter().for_each(|s| println!("{}", s));
+        // diff_df.column("id")?.as_series().iter().for_each(|s| println!("{}", s));
     }
     let mut combined_df = if existing_df.height() > 0 {
         concat_dataframes(vec![existing_df.lazy(), diff_df.lazy()])?
@@ -86,6 +87,19 @@ pub fn update_abi_df(abi_df_path: String, abi_folder_path: String) -> Result<Dat
     };
     let mut file = File::create(path).map_err(|e| AbiReadError::InvalidAbiDf(e.to_string()))?;
     ParquetWriter::new(&mut file).finish(&mut combined_df).map_err(AbiReadError::PolarsError)?;
+
+    let duplicate_hashes = combined_df.clone()
+        .lazy()
+        .group_by([col("hash")])
+        .agg([col("hash").count().alias("hash_count")])
+        .filter(col("hash_count").gt(lit(1)));
+    let duplicated_rows = combined_df.clone().lazy().join(duplicate_hashes, [col("hash")], [col("hash")], JoinArgs::default()).sort("hash", SortOptions::default()).collect()?;
+    if duplicated_rows.height() > 1 {
+         println!(
+            "[{}] Warning: ABI df contains duplicated hashes, that will cause duplicated decoded logs. 10 lines examples: {}",
+            Local::now().format("%Y-%m-%d %H:%M:%S"),            
+            duplicated_rows.head(Some(10)));
+    }
 
     Ok(combined_df)
 }
