@@ -146,7 +146,7 @@ pub fn read_new_abi_file(path: std::path::PathBuf) -> Result<DataFrame, AbiReadE
         let json = fs::read_to_string(&path).map_err(|e| AbiReadError::InvalidAbiFile(e.to_string()))?;
         let abi: JsonAbi = serde_json::from_str(&json).map_err(|e| AbiReadError::InvalidAbiFile(e.to_string()))?;
         // let a = Some(abi.events().map(|event| create_event_row(event)).collect());
-        read_new_abi_item(abi, address)
+        read_new_abi_json(abi, address)
     } else {
         //skip file if it's not a .json or couldn't be parsed into an address by the extract_address_from_path function
         println!(
@@ -160,7 +160,7 @@ pub fn read_new_abi_file(path: std::path::PathBuf) -> Result<DataFrame, AbiReadE
     }
 }
 
-pub fn read_new_abi_item(abi: JsonAbi, address: Address) -> Result<DataFrame, AbiReadError>{
+pub fn read_new_abi_json(abi: JsonAbi, address: Address) -> Result<DataFrame, AbiReadError>{
     let function_rows: Vec<AbiItemRow> = abi.functions().map(|function| create_function_row(function, address)).collect();
     let event_rows: Vec<AbiItemRow> = abi.events().map(|event| create_event_row(event, address)).collect();
     let abi_rows = [function_rows, event_rows].concat();

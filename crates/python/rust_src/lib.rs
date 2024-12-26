@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use std::path::PathBuf;
 use alloy::primitives::Address;
 use pyo3::prelude::*;
@@ -15,7 +16,7 @@ fn glaciers_python(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(update_abi_df, m)?)?;
     m.add_function(wrap_pyfunction!(read_new_abi_folder, m)?)?;
     m.add_function(wrap_pyfunction!(read_new_abi_file, m)?)?;
-    m.add_function(wrap_pyfunction!(read_new_abi_item, m)?)?;
+    m.add_function(wrap_pyfunction!(read_new_abi_json, m)?)?;
     m.add_function(wrap_pyfunction!(decode_log_files, m)?)?;
     m.add_function(wrap_pyfunction!(decode_log_df, m)?)?;
     m.add_function(wrap_pyfunction!(polars_decode_logs, m)?)?;
@@ -84,9 +85,9 @@ pub fn read_new_abi_file(path: String) -> PyResult<PyDataFrame> {
         .map(|df| PyDataFrame(df))
 }
 
-/// Reads functions and events from an ABI (Application Binary Interface)
+/// Reads functions and events from an ABI JSON (Application Binary Interface)
 ///
-/// This function processes an ABI definition and creates a DataFrame containing
+/// This function processes an ABI JSON definition and creates a DataFrame containing
 /// all functions and events found in the ABI.
 ///
 /// # Arguments
@@ -99,13 +100,12 @@ pub fn read_new_abi_file(path: String) -> PyResult<PyDataFrame> {
 /// # Errors
 /// Returns a `PyValueError` if there are issues processing the ABI
 #[pyfunction]
-pub fn read_new_abi_item(abi: String, address: String) -> PyResult<PyDataFrame> {
+pub fn read_new_abi_json(abi: String, address: String) -> PyResult<PyDataFrame> {
     let abi: JsonAbi = serde_json::from_str(&abi)
         .map_err(|e| PyValueError::new_err(format!("Invalid ABI JSON: {}", e)))?;
-    let address = Address::parse_checksummed(&address, None)
+    let address = Address::from_str(&address)
         .map_err(|e| PyValueError::new_err(format!("Invalid address: {}", e)))?;
-
-    abi_reader::read_new_abi_item(abi, address)
+    abi_reader::read_new_abi_json(abi, address)
         .map_err(|e| PyValueError::new_err(format!("Error processing ABI: {}", e)))
         .map(|df| PyDataFrame(df))
 }
