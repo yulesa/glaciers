@@ -21,7 +21,7 @@ Our goal is to develop Glaciers into a robust and efficient solution for decodin
 ### 2024-12-27
  - Refactor the ABI Reader, providing functions to aggregate multiple ABI files in a folder, a single ABI, or even a manually inputted ABI, into a file or DF.
  - Debuged matched events, but decode fails.
- - Created the decoding key concept documentation.
+ - Created the decoding key concepts documentation.
 
 ### 2024-12-20
 - Shared Glaciers in the Data Tools channel.
