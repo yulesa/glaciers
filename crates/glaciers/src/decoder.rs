@@ -354,6 +354,7 @@ fn decode_log_udf(s: Series) -> PolarsResult<Option<Series>> {
                         event.event_values, event.event_keys, event.event_json
                     )
                 })
+                // Ignore decoding errors. In the future, we can have a param to log errors or store them in the table.
                 .ok()
         })
         .collect();
@@ -437,6 +438,7 @@ fn map_event_sig_and_values(
     event_sig: &Event,
     event_values: &Vec<DynSolValue>,
 ) -> Result<Vec<StructuredEventParam>, DecodeError> {
+    // This error might be impossible, because it would make decode_log_parts fail before.
     if event_values.len() != event_sig.inputs.len() {
         return Err(DecodeError::DecodingError(
             "Mismatch between signature length and returned params length".to_string(),
