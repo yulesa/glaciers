@@ -19,7 +19,7 @@ abis_folder_path = project_dir+ABIS_FOLDER_PATH
 logs_folder_path = project_dir+LOGS_FOLDER_PATH
 
 logs_df = pl.read_parquet(f"{logs_folder_path}/{LOGS_FILE_NAME}")
-print(f"Raw logs file: \n{logs_df.head()}")
+print(f"Raw logs file: \n{logs_df.head()}\n\n")
 
 
 
@@ -40,7 +40,7 @@ print(f"Raw logs file: \n{logs_df.head()}")
 # # Errors
 # Returns a `PyValueError` if there are issues reading or processing the ABIs
 abis_df = gl.update_abi_df(abi_file_path, abis_folder_path)
-print(f"\nFirst 5 rows of ABIs DataFrame:\n{abis_df.head()}")
+print(f"\nFirst 5 rows of updatedABIs DataFrame:\n{abis_df.head()}\n\n")
 
 ######## Test read_new_abi_folder ########
 # Reads ABIs in a folder
@@ -57,7 +57,7 @@ print(f"\nFirst 5 rows of ABIs DataFrame:\n{abis_df.head()}")
 # # Errors
 # Returns a `PyValueError` if there are issues reading or processing the ABIs
 folder_df = gl.read_new_abi_folder(abis_folder_path)
-print(f"\nABIs DataFrame from folder:\n{folder_df.head()}")
+print(f"\nABIs DataFrame from folder:\n{folder_df.head()}\n\n")
 
 
 ######## Test read_new_abi_file ########
@@ -76,7 +76,7 @@ print(f"\nABIs DataFrame from folder:\n{folder_df.head()}")
 # Returns a `PyValueError` if there are issues reading or processing the ABI
 abi_file = os.path.join(abis_folder_path, os.listdir(abis_folder_path)[0])  # Get first ABI file
 file_df = gl.read_new_abi_file(abi_file)
-print(f"\nABIs DataFrame from single file:\n{file_df.head()}")
+print(f"\nABIs DataFrame from single file:\n{file_df.head()}\n\n")
 
 
 ######## Test read_new_abi_json ########
@@ -124,7 +124,7 @@ with open(abi_file, 'r') as f:
     """
     address = "0xE672E0E0101A7F58d728751E2a5e6Da5Ff1FDa64"
     item_df = gl.read_new_abi_json(abi_json, address)
-    print(f"\nABIs DataFrame from JSON string:\n{item_df.head()}")
+    print(f"\nABIs DataFrame from JSON string:\n{item_df.head()}\n\n")
 
 
 
@@ -144,7 +144,24 @@ with open(abi_file, 'r') as f:
 # # Errors
 # Returns a `PyValueError` if there are issues processing the logs
 gl.decode_log_folder(logs_folder_path, abi_file_path)
-print(f"\n Decoded logs saved in the decoded folder.")
+print(f"\n Decoded logs saved in the decoded folder.\n\n")
+
+
+######## Test decode_log_file ########
+# Decode a log file
+#
+# This function takes a log file path and a abi parquet file path and decode the file
+# to a decoded logs' DataFrame.
+#
+# # Arguments
+# - `log_file_path`: Path to the log file
+# - `abi_df_path`: Path to the abi parquet file
+#
+# # Returns
+# A `PyResult` containing a decoded logs' `PyDataFrame` or an error
+log_file = os.path.join(logs_folder_path, os.listdir(logs_folder_path)[0])  # Get first log file
+decoded_df = gl.decode_log_file(log_file, abi_file_path)
+print(f"\nDecoded Logs in the log file {log_file}:\n{decoded_df.head()}\n\n")
 
 
 ######## Test decode_log_df ########
@@ -164,7 +181,26 @@ print(f"\n Decoded logs saved in the decoded folder.")
 # Returns a `PyValueError` if there are issues processing the logs
 logs_df = pl.read_parquet(f"{logs_folder_path}/{LOGS_FILE_NAME}")
 decoded_df = gl.decode_log_df(logs_df, abi_file_path)
-print(f"\nDecoded Logs DataFrame:\n{decoded_df.head()}")
+print(f"\nDecoded Logs DataFrame:\n{decoded_df.head()}\n\n")
+
+
+######## Test decode_log_df_with_abi_df ########
+# Decode a logs' DataFrame with a abi DataFrame
+#
+# This function takes a raw logs' DataFrame and a abi DataFrame and decode the df
+# to a decoded logs' DataFrame.
+#
+# # Arguments
+# - `logs_df`: A DataFrame containing raw blockchain logs
+# - `abi_df`: A DataFrame containing the ABI definitions
+#
+# # Returns
+# A `PyResult` containing a decoded logs' `PyDataFrame` or an error
+
+logs_df = pl.read_parquet(f"{logs_folder_path}/{LOGS_FILE_NAME}")
+abi_df = pl.read_parquet(abi_file_path)
+decoded_df = gl.decode_log_df_with_abi_df(logs_df, abi_df)
+print(f"\nDecoded Logs using ABI DataFrame:\n{decoded_df.head()}\n\n")
 
 
 ######## Test polars_decode_logs ########
@@ -193,4 +229,4 @@ abi_df = pl.DataFrame(
 )
 # Decode the events
 decoded_df = gl.polars_decode_logs(logs_df, abi_df)
-print(f"\nDecoded Logs DataFrame:\n{decoded_df.head(5)}")
+print(f"\nDecoded Logs DataFrame:\n{decoded_df.head(5)}\n\n")

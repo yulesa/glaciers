@@ -132,10 +132,10 @@ pub async fn decode_log_folder(
     Ok(())
 }
 
-async fn decode_log_file(
+pub async fn decode_log_file(
     log_file_path: PathBuf,
     abi_df_path: String,
-) -> Result<(), DecodeError> {
+) -> Result<DataFrame, DecodeError> {
     let file_path_str = log_file_path.to_string_lossy().into_owned();
     let file_name = log_file_path
         .file_name()
@@ -178,18 +178,25 @@ async fn decode_log_file(
         Local::now().format("%Y-%m-%d %H:%M:%S"),
         save_path
     );
-    save_decoded_logs(decoded_df, &save_path)?;
+    save_decoded_logs(decoded_df.clone(), &save_path)?;
 
-    Ok(())
+    Ok(decoded_df)
 }
 
 pub async fn decode_log_df (
     log_df: DataFrame,
     abi_df_path: String,
 ) -> Result<DataFrame, DecodeError> {
-    let abi_df = read_parquet_file(&abi_df_path)?;
+    let abi_df = read_parquet_file(&abi_df_path)?.collect()?;
+    decode_log_df_with_abi_df(log_df, abi_df).await
+}
+
+pub async fn decode_log_df_with_abi_df(
+    log_df: DataFrame,
+    abi_df: DataFrame,
+) -> Result<DataFrame, DecodeError> {
     //select only the relevant columns
-    let abi_df = abi_df.select([
+    let abi_df = abi_df.lazy().select([
         col("hash"),
         col("full_signature"),
         col("name"),
