@@ -204,7 +204,7 @@ print(f"\nDecoded Logs using ABI DataFrame:\n{decoded_df.head()}\n\n")
 
 
 ######## Test polars_decode_logs ########
-# Decode dataframe event logs using a minimal ABI definitions dataframe
+# Decode dataframe event logs using ABI definitions dataframe, without multi-threading
 #
 # Args:
 #     logs_df: A polars DataFrame containing the raw logs with topic0, topic1, topic2, topic3, and data columns
