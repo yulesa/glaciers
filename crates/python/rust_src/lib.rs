@@ -18,7 +18,9 @@ fn glaciers_python(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(read_new_abi_file, m)?)?;
     m.add_function(wrap_pyfunction!(read_new_abi_json, m)?)?;
     m.add_function(wrap_pyfunction!(decode_log_folder, m)?)?;
+    m.add_function(wrap_pyfunction!(decode_log_file, m)?)?;
     m.add_function(wrap_pyfunction!(decode_log_df, m)?)?;
+    m.add_function(wrap_pyfunction!(decode_log_df_with_abi_df, m)?)?;
     m.add_function(wrap_pyfunction!(polars_decode_logs, m)?)?;
     Ok(())
 }
@@ -113,12 +115,12 @@ pub fn read_new_abi_json(abi: String, address: String) -> PyResult<PyDataFrame> 
 
 /// Decode a folder of logs in parquet format.
 ///
-/// This function takes a logs folder path and a topic0 parquet file path and decode it
+/// This function takes a logs folder path and and abi parquet file path and decode it
 /// to a decoded logs' parquet files
 ///
 /// # Arguments
 /// - `log_folder_path`: Path to a folder containing the logs parquet files
-/// - `topic0_path`: Path to the topic0 file containing the topic0 and event signatures
+/// - `abi_df_path`: Path to the abi file containing the topic0 and event signatures
 ///
 /// # Returns
 /// No Return
@@ -126,21 +128,21 @@ pub fn read_new_abi_json(abi: String, address: String) -> PyResult<PyDataFrame> 
 /// # Errors
 /// Returns a `PyValueError` if there are issues processing the logs
 #[pyfunction]
-pub fn decode_log_folder(py: Python<'_>, log_folder_path: String, topic0_path: String) -> PyResult<&PyAny> {
+pub fn decode_log_folder(py: Python<'_>, log_folder_path: String, abi_df_path: String) -> PyResult<&PyAny> {
     pyo3_asyncio::tokio::future_into_py(py, async move {
-        decoder::decode_log_folder(log_folder_path, topic0_path).await
+        decoder::decode_log_folder(log_folder_path, abi_df_path).await
         .map_err(|e| PyValueError::new_err(format!("Decoding error: {}", e)))
     })
 }
 
-/// Decode a DataFrame of logs
+/// Decode a log file
 ///
-/// This function takes a raw logs' DataFrame and a topic0 parquet file path and decode it
+/// This function takes a log file path and a abi parquet file path and decode it
 /// to a decoded logs' DataFrame.
 ///
 /// # Arguments
-/// - `logs_df`: A DataFrame containing raw blockchain logs
-/// - `topic0_path`: Path to the topic0 file containing the topic0 and event signatures
+/// - `log_file_path`: Path to the log file
+/// - `abi_df_path`: Path to the abi file containing the topic0 and event signatures
 ///
 /// # Returns
 /// A `PyResult` containing a decoded logs' `PyDataFrame` or an error
@@ -148,11 +150,67 @@ pub fn decode_log_folder(py: Python<'_>, log_folder_path: String, topic0_path: S
 /// # Errors
 /// Returns a `PyValueError` if there are issues processing the logs
 #[pyfunction]
-pub fn decode_log_df(py: Python<'_>, logs_df: PyDataFrame, topic0_path: String) -> PyResult<&PyAny> {
+pub fn decode_log_file(py: Python<'_>, log_file_path: String, abi_df_path: String) -> PyResult<&PyAny> {
+    let log_file_path = PathBuf::from(log_file_path);
+    let result = pyo3_asyncio::tokio::future_into_py(py, async move {
+        match decoder::decode_log_file(log_file_path, abi_df_path).await {
+            Ok(df) => Ok(PyDataFrame(df)),
+            Err(e) => Err(PyValueError::new_err(format!("Decoding error: {}", e))),
+        }
+    })?;
+    Ok(result)
+}
+
+/// Decode a DataFrame of logs
+///
+/// This function takes a raw logs' DataFrame and a abi parquet file path and decode it
+/// to a decoded logs' DataFrame.
+///
+/// # Arguments
+/// - `logs_df`: A DataFrame containing raw blockchain logs
+/// - `abi_df_path`: Path to the abi file containing the topic0 and event signatures
+///
+/// # Returns
+/// A `PyResult` containing a decoded logs' `PyDataFrame` or an error
+///
+/// # Errors
+/// Returns a `PyValueError` if there are issues processing the logs
+#[pyfunction]
+pub fn decode_log_df(py: Python<'_>, logs_df: PyDataFrame, abi_df_path: String) -> PyResult<&PyAny> {
     // Convert PyDataFrame to native polars DataFrame
     let logs_df:DataFrame = logs_df.into();
     let result = pyo3_asyncio::tokio::future_into_py(py, async move {
-        match decoder::decode_log_df(logs_df, topic0_path).await {
+        match decoder::decode_log_df(logs_df, abi_df_path).await {
+            Ok(df) => Ok(PyDataFrame(df)),
+            Err(e) => Err(PyValueError::new_err(format!("Decoding error: {}", e))),
+        }
+    })?;
+    Ok(result)
+}
+
+/// Decode a DataFrame of logs using an ABI DataFrame
+/// 
+/// This function takes a raw logs' DataFrame and an ABI DataFrame and decode it
+/// to a decoded logs' DataFrame.
+///
+/// # Arguments
+/// - `logs_df`: A DataFrame containing raw blockchain logs
+/// - `abi_df`: A DataFrame containing:
+///         - topic0: The topic0 (event signature hash) as bytes
+///         - full_signature: The full event signature as string (e.g. "Transfer(address indexed from, address indexed to, uint256 value)")
+///
+/// # Returns
+/// A `PyResult` containing a decoded logs' `PyDataFrame` or an error
+///
+/// # Errors
+/// Returns a `PyValueError` if there are issues processing the logs
+#[pyfunction]
+pub fn decode_log_df_with_abi_df(py: Python<'_>, logs_df: PyDataFrame, abi_df: PyDataFrame) -> PyResult<&PyAny> {
+    // Convert PyDataFrame to native polars DataFrame
+    let logs_df:DataFrame = logs_df.into();
+    let abi_df:DataFrame = abi_df.into();
+    let result = pyo3_asyncio::tokio::future_into_py(py, async move {
+        match decoder::decode_log_df_with_abi_df(logs_df, abi_df).await {
             Ok(df) => Ok(PyDataFrame(df)),
             Err(e) => Err(PyValueError::new_err(format!("Decoding error: {}", e))),
         }

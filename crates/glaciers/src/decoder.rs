@@ -11,6 +11,8 @@ use thiserror::Error;
 use tokio::sync::{mpsc, Mutex, Semaphore};
 use tokio::task;
 
+use crate::matcher::{match_logs_by_topic0, MatcherError};
+
 const MAX_CONCURRENT_FILES_DECODING: usize = 16;
 const MAX_CHUNK_THREADS_PER_FILE: usize = 16;
 const DECODED_CHUCK_SIZE: usize = 500_000;
@@ -21,6 +23,8 @@ pub enum DecodeError {
     DecodingError(String),
     #[error("Polars error: {0}")]
     PolarsError(#[from] PolarsError),
+    #[error("Matcher error: {0}")]
+    MatcherError(#[from] MatcherError),
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
     #[error("Join error: {0}")]
@@ -132,10 +136,10 @@ pub async fn decode_log_folder(
     Ok(())
 }
 
-async fn decode_log_file(
+pub async fn decode_log_file(
     log_file_path: PathBuf,
     abi_df_path: String,
-) -> Result<(), DecodeError> {
+) -> Result<DataFrame, DecodeError> {
     let file_path_str = log_file_path.to_string_lossy().into_owned();
     let file_name = log_file_path
         .file_name()
@@ -178,36 +182,28 @@ async fn decode_log_file(
         Local::now().format("%Y-%m-%d %H:%M:%S"),
         save_path
     );
-    save_decoded_logs(decoded_df, &save_path)?;
+    save_decoded_logs(decoded_df.clone(), &save_path)?;
 
-    Ok(())
+    Ok(decoded_df)
 }
 
 pub async fn decode_log_df (
     log_df: DataFrame,
     abi_df_path: String,
 ) -> Result<DataFrame, DecodeError> {
-    let abi_df = read_parquet_file(&abi_df_path)?;
-    //select only the relevant columns
-    let abi_df = abi_df.select([
-        col("hash"),
-        col("full_signature"),
-        col("name"),
-        col("anonymous")
-    ]);
-    // Perform left join with ABI topic0 list
-    let logs_left_join_abi_df = log_df
-        .lazy()
-        .join(
-            abi_df,
-            [col("topic0")],
-            [col("hash")],
-            JoinArgs::new(JoinType::Left),
-        )
-        .collect()?;
+    let abi_df = read_parquet_file(&abi_df_path)?.collect()?;
+    decode_log_df_with_abi_df(log_df, abi_df).await
+}
+
+pub async fn decode_log_df_with_abi_df(
+    log_df: DataFrame,
+    abi_df: DataFrame,
+) -> Result<DataFrame, DecodeError> {
+    // perform matching
+    let matched_df = match_logs_by_topic0(log_df, abi_df)?;
 
     // Split logs files in chunk, decode logs, collected and union results and save in the decoded folder
-    decode_logs(logs_left_join_abi_df).await
+    decode_logs(matched_df).await
 }
 
 // Helper function to create lazydf from a parquet file
