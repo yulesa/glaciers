@@ -14,6 +14,7 @@ path = "src/lib.rs"
 [dependencies]
 alloy = { workspace = true }
 serde_json = { workspace = true }
+toml = { workspace = true }
 serde = { workspace = true }
 polars = { workspace = true }
 thiserror = { workspace = true }

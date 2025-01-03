@@ -11,11 +11,8 @@ use thiserror::Error;
 use tokio::sync::{mpsc, Mutex, Semaphore};
 use tokio::task;
 
+use crate::configger::get_config;
 use crate::matcher::{match_logs_by_topic0, MatcherError};
-
-const MAX_CONCURRENT_FILES_DECODING: usize = 16;
-const MAX_CHUNK_THREADS_PER_FILE: usize = 16;
-const DECODED_CHUCK_SIZE: usize = 500_000;
 
 #[derive(Error, Debug)]
 pub enum DecodeError {
@@ -103,7 +100,7 @@ pub async fn decode_log_folder(
         .collect();
 
     // Create a semaphore with MAX_CONCURRENT_FILES_DECODING permits
-    let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_FILES_DECODING));
+    let semaphore = Arc::new(Semaphore::new(get_config().decoder.max_concurrent_files_decoding));
     // Create a vector to hold our join handles
     let mut handles = Vec::new();
 
@@ -213,7 +210,7 @@ fn read_parquet_file(path: &str) -> Result<LazyFrame, DecodeError> {
 
 pub async fn decode_logs(df: DataFrame) -> Result<DataFrame, DecodeError> {
     // Create a semaphore with MAX_THREAD_NUMBER permits
-    let semaphore = Arc::new(Semaphore::new(MAX_CHUNK_THREADS_PER_FILE));
+    let semaphore = Arc::new(Semaphore::new(get_config().decoder.max_chunk_threads_per_file));
     // Create a channel to communicate tasks results
     let (tx, mut rx) = mpsc::channel(10);
     // Shared vector to collect DataFrame chunks
@@ -225,7 +222,7 @@ pub async fn decode_logs(df: DataFrame) -> Result<DataFrame, DecodeError> {
     let total_height = df.height();
     let mut i = 0;
     while i < total_height {
-        let end = (i + DECODED_CHUCK_SIZE).min(total_height);
+        let end = (i + get_config().decoder.decoded_chunk_size).min(total_height);
         let chunk_df = df.slice(i as i64, end - i);
 
         let sem_clone = semaphore.clone();

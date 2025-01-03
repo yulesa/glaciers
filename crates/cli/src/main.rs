@@ -1,11 +1,8 @@
 use glaciers::abi_reader;
 use glaciers::decoder::decode_log_folder;
 use glaciers::decoder::DecodeError;
+use glaciers::configger::{initialize_glaciers_config, get_config};
 use thiserror::Error;
-
-const ABI_DF_FILE_PATH: &str = "ABIs/ethereum__abis.parquet";
-const ABIS_FOLDER_PATH: &str = "ABIs/abi_database";
-const RAW_LOGS_FOLDER_PATH: &str = "data/logs";
 
 #[derive(Error, Debug)]
 enum AppError {
@@ -32,11 +29,11 @@ impl From<glaciers::abi_reader::AbiReadError> for AppError {
 
 #[tokio::main]
 async fn main() -> Result<(), AppError> {
+    initialize_glaciers_config();
     // Read ABI list
-    abi_reader::update_abi_df(ABI_DF_FILE_PATH.to_string(), ABIS_FOLDER_PATH.to_string())?;
+    abi_reader::update_abi_df(get_config().main.abi_df_file_path, get_config().main.abi_folder_path)?;
 
     // process the log files concurrently
-    decode_log_folder(RAW_LOGS_FOLDER_PATH.to_string(), ABI_DF_FILE_PATH.to_string()).await?;
-
+    decode_log_folder(get_config().main.raw_logs_folder_path, get_config().main.abi_df_file_path).await?;
     Ok(())
 }

@@ -16,7 +16,6 @@ pub enum AbiReadError {
     InvalidAbiDf(String),
 }
 
-
 #[derive(Debug, Clone)]
 enum Hash {
     Hash32(FixedBytes<32>),
