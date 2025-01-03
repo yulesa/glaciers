@@ -1502,6 +1502,7 @@ dependencies = [
  "pyo3-asyncio",
  "pyo3-polars",
  "serde_json",
+ "toml",
 ]
 
 [[package]]

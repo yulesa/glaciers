@@ -5,11 +5,11 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ConfiggerError {
-    #[error("Could not read Toml file, IO error: {0}")]
+    #[error("Error while setting GLACIERS_CONFIG, could not read Toml file, IO error: {0}")]
     IOError(#[from] std::io::Error),
-    #[error("Could not parse Toml file, parse error: {0}")]
+    #[error("Error while setting GLACIERS_CONFIG, could not parse Toml file, parse error: {0}")]
     ParseError(#[from] toml::de::Error),
-    #[error("Invalid Toml format")]
+    #[error("Error while setting GLACIERS_CONFIG, invalid Toml format")]
     InvalidTomlFormat,
     #[error("Error while setting GLACIERS_CONFIG, unsupported value type for field {0}")]
     UnsupportedValueType(String),
