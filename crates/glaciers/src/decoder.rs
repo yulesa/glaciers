@@ -15,7 +15,7 @@ use crate::configger::get_config;
 use crate::matcher::{match_logs_by_topic0, MatcherError};
 
 #[derive(Error, Debug)]
-pub enum DecodeError {
+pub enum DecoderError {
     #[error("Decoding error: {0}")]
     DecodingError(String),
     #[error("Polars error: {0}")]
@@ -91,7 +91,7 @@ impl From<DynSolValue> for StringifiedValue {
 pub async fn decode_log_folder(
     log_folder_path: String,
     abi_df_path: String,
-) -> Result<(), DecodeError> {
+) -> Result<(), DecoderError> {
 
     // Collect log files' paths from log_folder_path
     let log_files: Vec<PathBuf> = fs::read_dir(log_folder_path)?
@@ -136,7 +136,7 @@ pub async fn decode_log_folder(
 pub async fn decode_log_file(
     log_file_path: PathBuf,
     abi_df_path: String,
-) -> Result<DataFrame, DecodeError> {
+) -> Result<DataFrame, DecoderError> {
     let file_path_str = log_file_path.to_string_lossy().into_owned();
     let file_name = log_file_path
         .file_name()
@@ -187,7 +187,7 @@ pub async fn decode_log_file(
 pub async fn decode_log_df (
     log_df: DataFrame,
     abi_df_path: String,
-) -> Result<DataFrame, DecodeError> {
+) -> Result<DataFrame, DecoderError> {
     let abi_df = read_parquet_file(&abi_df_path)?.collect()?;
     decode_log_df_with_abi_df(log_df, abi_df).await
 }
@@ -195,7 +195,7 @@ pub async fn decode_log_df (
 pub async fn decode_log_df_with_abi_df(
     log_df: DataFrame,
     abi_df: DataFrame,
-) -> Result<DataFrame, DecodeError> {
+) -> Result<DataFrame, DecoderError> {
     // perform matching
     let matched_df = match_logs_by_topic0(log_df, abi_df)?;
 
@@ -204,11 +204,11 @@ pub async fn decode_log_df_with_abi_df(
 }
 
 // Helper function to create lazydf from a parquet file
-fn read_parquet_file(path: &str) -> Result<LazyFrame, DecodeError> {
-    LazyFrame::scan_parquet(path, Default::default()).map_err(|err| DecodeError::PolarsError(err))
+fn read_parquet_file(path: &str) -> Result<LazyFrame, DecoderError> {
+    LazyFrame::scan_parquet(path, Default::default()).map_err(|err| DecoderError::PolarsError(err))
 }
 
-pub async fn decode_logs(df: DataFrame) -> Result<DataFrame, DecodeError> {
+pub async fn decode_logs(df: DataFrame) -> Result<DataFrame, DecoderError> {
     // Create a semaphore with MAX_THREAD_NUMBER permits
     let semaphore = Arc::new(Semaphore::new(get_config().decoder.max_chunk_threads_per_file));
     // Create a channel to communicate tasks results
@@ -276,7 +276,7 @@ pub async fn decode_logs(df: DataFrame) -> Result<DataFrame, DecodeError> {
     union_dataframes(collected_dfs).await
 }
 
-pub fn polars_decode_logs(df: DataFrame) -> Result<DataFrame, DecodeError> {
+pub fn polars_decode_logs(df: DataFrame) -> Result<DataFrame, DecoderError> {
     let decoded_chuck_df = df
         .lazy()
         //apply decode_log_udf, creating a decoded_log column
@@ -317,7 +317,7 @@ pub fn polars_decode_logs(df: DataFrame) -> Result<DataFrame, DecodeError> {
 }
 
 // Helper function to union DataFrames
-async fn union_dataframes(dfs: Vec<DataFrame>) -> Result<DataFrame, DecodeError> {
+async fn union_dataframes(dfs: Vec<DataFrame>) -> Result<DataFrame, DecoderError> {
     // If only one DataFrame, return it directly
     if dfs.len() == 1 {
         return Ok(dfs[0].clone());
@@ -394,7 +394,7 @@ fn decode(
     full_signature: &str,
     topics: Vec<FixedBytes<32>>,
     data: &[u8],
-) -> Result<ExtDecodedEvent, DecodeError> {
+) -> Result<ExtDecodedEvent, DecoderError> {
     let event_sig = parse_event_signature(full_signature)?;
     let decoded_event = decode_event_log(&event_sig, topics, data)?;
     let mut event_values: Vec<DynSolValue> = decoded_event.indexed.clone();
@@ -413,27 +413,27 @@ fn decode(
     Ok(extended_decoded_event)
 }
 
-fn parse_event_signature(full_signature: &str) -> Result<Event, DecodeError> {
-    Event::parse(full_signature).map_err(|e| DecodeError::DecodingError(e.to_string()))
+fn parse_event_signature(full_signature: &str) -> Result<Event, DecoderError> {
+    Event::parse(full_signature).map_err(|e| DecoderError::DecodingError(e.to_string()))
 }
 
 fn decode_event_log(
     event: &Event,
     topics: Vec<FixedBytes<32>>,
     data: &[u8],
-) -> Result<DecodedEvent, DecodeError> {
+) -> Result<DecodedEvent, DecoderError> {
     event
         .decode_log_parts(topics, data, false)
-        .map_err(|e| DecodeError::DecodingError(e.to_string()))
+        .map_err(|e| DecoderError::DecodingError(e.to_string()))
 }
 
 fn map_event_sig_and_values(
     event_sig: &Event,
     event_values: &Vec<DynSolValue>,
-) -> Result<Vec<StructuredEventParam>, DecodeError> {
+) -> Result<Vec<StructuredEventParam>, DecoderError> {
     // This error might be impossible, because it would make decode_log_parts fail before.
     if event_values.len() != event_sig.inputs.len() {
-        return Err(DecodeError::DecodingError(
+        return Err(DecoderError::DecodingError(
             "Mismatch between signature length and returned params length".to_string(),
         ));
     }
@@ -453,7 +453,7 @@ fn map_event_sig_and_values(
     Ok(structured_event)
 }
 
-fn save_decoded_logs(mut df: DataFrame, path: &str) -> Result<(), DecodeError> {
+fn save_decoded_logs(mut df: DataFrame, path: &str) -> Result<(), DecoderError> {
     let mut file = File::create(Path::new(path))?;
     ParquetWriter::new(&mut file).finish(&mut df)?;
     Ok(())

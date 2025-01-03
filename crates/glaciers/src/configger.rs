@@ -1,6 +1,21 @@
 use std::sync::{LazyLock, RwLock};
 use std::fs;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum ConfiggerError {
+    #[error("Could not read Toml file, IO error: {0}")]
+    IOError(#[from] std::io::Error),
+    #[error("Could not parse Toml file, parse error: {0}")]
+    ParseError(#[from] toml::de::Error),
+    #[error("Invalid Toml format")]
+    InvalidTomlFormat,
+    #[error("Error while setting GLACIERS_CONFIG, unsupported value type for field {0}")]
+    UnsupportedValueType(String),
+    #[error("Error while setting GLACIERS_CONFIG, invalid field or value type for field {0}")]
+    InvalidFieldOrValue(String),
+}
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct MainConfig {
@@ -31,12 +46,12 @@ pub struct Config {
 pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
     RwLock::new(Config {
         main: MainConfig {
-            abi_df_file_path: String::new(),
-            abi_folder_path: String::new(),
-            raw_logs_folder_path: String::new(),
+            abi_df_file_path: String::from("ABIs/ethereum__abis.parquet"),
+            abi_folder_path: String::from("ABIs/abi_database"),
+            raw_logs_folder_path: String::from("data/logs"),
         },
         abi_reader: AbiReaderConfig {
-            existing_df_joining_key: String::new(),
+            existing_df_joining_key: String::from("id"),
         },
         decoder: DecoderConfig {
             max_concurrent_files_decoding: 16,
@@ -45,12 +60,6 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
         },
     })
 });
-
-pub fn initialize_glaciers_config() {
-    let config_str = fs::read_to_string("glaciers_config.toml").unwrap();
-    let config: Config = toml::from_str(&config_str).unwrap();
-    *GLACIERS_CONFIG.write().unwrap() = config;
-}
 
 #[derive(Clone)]
 pub enum ConfigValue {
@@ -76,7 +85,11 @@ impl From<usize> for ConfigValue {
     }
 }
 
-pub fn set_config(field: &str, value: impl Into<ConfigValue>) -> Result<(), &'static str> {
+pub fn get_config() -> Config {
+    GLACIERS_CONFIG.read().unwrap().clone()
+}
+
+pub fn set_config(field: &str, value: impl Into<ConfigValue>) -> Result<(), ConfiggerError> {
     let mut config = GLACIERS_CONFIG.write().unwrap();
     let value = value.into();
     let section = field.split(".").next().unwrap();
@@ -96,14 +109,14 @@ pub fn set_config(field: &str, value: impl Into<ConfigValue>) -> Result<(), &'st
                 config.main.raw_logs_folder_path = v;
                 Ok(())
             },
-            _ => Err("Invalid field or value type for main section")
+            _ => Err(ConfiggerError::InvalidFieldOrValue(field.to_string()))
         },
         "abi_reader" => match (field, value) {
             ("existing_df_joining_key", ConfigValue::String(v)) => {
                 config.abi_reader.existing_df_joining_key = v;
                 Ok(())
             },
-            _ => Err("Invalid field or value type for abi_reader section")
+            _ => Err(ConfiggerError::InvalidFieldOrValue(field.to_string()))
         },
         "decoder" => match (field, value) {
             ("max_concurrent_files_decoding", ConfigValue::Number(v)) => {
@@ -118,12 +131,31 @@ pub fn set_config(field: &str, value: impl Into<ConfigValue>) -> Result<(), &'st
                 config.decoder.decoded_chunk_size = v;
                 Ok(())
             },
-            _ => Err("Invalid field or value type for decoder section")
+            _ => Err(ConfiggerError::InvalidFieldOrValue(field.to_string()))
         },
-        _ => Err("Invalid section name")
+        _ => Err(ConfiggerError::InvalidFieldOrValue(section.to_string()))
     }
 }
 
-pub fn get_config() -> Config {
-    GLACIERS_CONFIG.read().unwrap().clone()
+pub fn set_config_toml(file_path: &str) -> Result<(), ConfiggerError>{
+    let toml_content = fs::read_to_string(file_path).map_err(ConfiggerError::IOError)?;
+    let update_value = toml::from_str::<toml::Value>(&toml_content).map_err(ConfiggerError::ParseError)?;
+    let table = update_value.as_table().ok_or(ConfiggerError::InvalidTomlFormat)?;
+    
+    for (section, values) in table {
+        let section_table = values.as_table().ok_or(ConfiggerError::InvalidTomlFormat)?;
+        
+        for (key, value) in section_table {
+            let full_key = format!("{}.{}", section, key);
+            
+            let config_value = match value {
+                toml::Value::String(s) => ConfigValue::String(s.clone()),
+                toml::Value::Integer(n) => ConfigValue::Number(*n as usize),
+                _ => return Err(ConfiggerError::UnsupportedValueType(full_key))
+            };
+
+            set_config(&full_key, config_value)?;
+        }
+    }
+    Ok(())
 }

@@ -5,7 +5,7 @@ use chrono::Local;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum AbiReadError {
+pub enum AbiReaderError {
     #[error("Polars error: {0}")]
     PolarsError(#[from] polars::prelude::PolarsError),
     #[error("Invalid ABI file: {0}")]
@@ -42,7 +42,7 @@ pub struct AbiItemRow {
     id: String,
 }
 
-pub fn update_abi_df(abi_df_path: String, abi_folder_path: String) -> Result<DataFrame, AbiReadError> {
+pub fn update_abi_df(abi_df_path: String, abi_folder_path: String) -> Result<DataFrame, AbiReaderError> {
     let path = Path::new(&abi_df_path);
     let existing_df = if path.exists() {
         read_parquet_file(path)?
@@ -84,8 +84,8 @@ pub fn update_abi_df(abi_df_path: String, abi_folder_path: String) -> Result<Dat
     } else {
         new_df
     };
-    let mut file = File::create(path).map_err(|e| AbiReadError::InvalidAbiDf(e.to_string()))?;
-    ParquetWriter::new(&mut file).finish(&mut combined_df).map_err(AbiReadError::PolarsError)?;
+    let mut file = File::create(path).map_err(|e| AbiReaderError::InvalidAbiDf(e.to_string()))?;
+    ParquetWriter::new(&mut file).finish(&mut combined_df).map_err(AbiReaderError::PolarsError)?;
 
     let duplicate_hashes = combined_df.clone()
         .lazy()
@@ -103,15 +103,15 @@ pub fn update_abi_df(abi_df_path: String, abi_folder_path: String) -> Result<Dat
     Ok(combined_df)
 }
 
-fn read_parquet_file(path: &Path) -> Result<DataFrame, AbiReadError> {
-    ParquetReader::new(File::open(path).map_err(|e| AbiReadError::InvalidAbiDf(e.to_string()))?)
+fn read_parquet_file(path: &Path) -> Result<DataFrame, AbiReaderError> {
+    ParquetReader::new(File::open(path).map_err(|e| AbiReaderError::InvalidAbiDf(e.to_string()))?)
         .finish()
-        .map_err(AbiReadError::PolarsError)
+        .map_err(AbiReaderError::PolarsError)
 }
 
-pub fn read_new_abi_folder(abi_folder_path: &str) -> Result<DataFrame, AbiReadError> {
+pub fn read_new_abi_folder(abi_folder_path: &str) -> Result<DataFrame, AbiReaderError> {
     let paths = fs::read_dir(abi_folder_path)
-        .map_err(|e| AbiReadError::InvalidFolder(e.to_string()))?;
+        .map_err(|e| AbiReaderError::InvalidFolder(e.to_string()))?;
     
     // Process each file and collect successful results
     let processed_frames: Vec<DataFrame> = paths
@@ -141,13 +141,13 @@ pub fn read_new_abi_folder(abi_folder_path: &str) -> Result<DataFrame, AbiReadEr
     let mut combined_df = processed_frames[0].clone();
     for df in processed_frames.into_iter().skip(1) {
         // concatenate each file dataframe
-        combined_df = combined_df.vstack(&df).map_err(AbiReadError::PolarsError)?;
+        combined_df = combined_df.vstack(&df).map_err(AbiReaderError::PolarsError)?;
     }
     
     Ok(combined_df)
 }
 
-pub fn read_new_abi_file(path: std::path::PathBuf) -> Result<DataFrame, AbiReadError> {
+pub fn read_new_abi_file(path: std::path::PathBuf) -> Result<DataFrame, AbiReaderError> {
     let address = extract_address_from_path(&path);
     if let Some(address) = address {
         println!(
@@ -156,8 +156,8 @@ pub fn read_new_abi_file(path: std::path::PathBuf) -> Result<DataFrame, AbiReadE
             path
         );
 
-        let json = fs::read_to_string(&path).map_err(|e| AbiReadError::InvalidAbiFile(e.to_string()))?;
-        let abi: JsonAbi = serde_json::from_str(&json).map_err(|e| AbiReadError::InvalidAbiFile(e.to_string()))?;
+        let json = fs::read_to_string(&path).map_err(|e| AbiReaderError::InvalidAbiFile(e.to_string()))?;
+        let abi: JsonAbi = serde_json::from_str(&json).map_err(|e| AbiReaderError::InvalidAbiFile(e.to_string()))?;
         // let a = Some(abi.events().map(|event| create_event_row(event)).collect());
         read_new_abi_json(abi, address)
     } else {
@@ -167,13 +167,13 @@ pub fn read_new_abi_file(path: std::path::PathBuf) -> Result<DataFrame, AbiReadE
             Local::now().format("%Y-%m-%d %H:%M:%S"),
             path
         );
-        Err(AbiReadError::InvalidAbiFile(
+        Err(AbiReaderError::InvalidAbiFile(
             "File is not a JSON format or filename couldn't be parsed into an address".to_string()
         ))
     }
 }
 
-pub fn read_new_abi_json(abi: JsonAbi, address: Address) -> Result<DataFrame, AbiReadError>{
+pub fn read_new_abi_json(abi: JsonAbi, address: Address) -> Result<DataFrame, AbiReaderError>{
     let function_rows: Vec<AbiItemRow> = abi.functions().map(|function| create_function_row(function, address)).collect();
     let event_rows: Vec<AbiItemRow> = abi.events().map(|event| create_event_row(event, address)).collect();
     let abi_rows = [function_rows, event_rows].concat();
@@ -220,7 +220,7 @@ fn create_function_row(function: &alloy::json_abi::Function, address: Address) -
     function_row
 }
 
-pub fn create_dataframe_from_rows(rows: Vec<AbiItemRow>) -> Result<DataFrame, AbiReadError> {
+pub fn create_dataframe_from_rows(rows: Vec<AbiItemRow>) -> Result<DataFrame, AbiReaderError> {
     let columns = vec![
         Series::new("address".into(), rows.iter().map(|r| r.address.clone()).collect::<Vec<String>>()),
         Series::new("hash".into(), rows.iter().map(|r| r.hash.as_bytes()).collect::<Vec<Vec<u8>>>()),
@@ -231,11 +231,11 @@ pub fn create_dataframe_from_rows(rows: Vec<AbiItemRow>) -> Result<DataFrame, Ab
         Series::new("id".into(), rows.iter().map(|r| r.id.clone()).collect::<Vec<String>>()),
     ];
 
-    DataFrame::new(columns).map_err(AbiReadError::PolarsError)
+    DataFrame::new(columns).map_err(AbiReaderError::PolarsError)
 }
 
-fn concat_dataframes(dfs: Vec<LazyFrame>) -> Result<DataFrame, AbiReadError> {
+fn concat_dataframes(dfs: Vec<LazyFrame>) -> Result<DataFrame, AbiReaderError> {
     let df = concat(dfs, UnionArgs::default())?;
     let df = df.unique(Some(vec!["id".to_string()]), UniqueKeepStrategy::First).collect();
-    df.map_err(AbiReadError::PolarsError)
+    df.map_err(AbiReaderError::PolarsError)
 }
