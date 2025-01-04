@@ -2,7 +2,6 @@ use std::str::FromStr;
 use std::path::PathBuf;
 use alloy::primitives::Address;
 use alloy::json_abi::JsonAbi;
-use glaciers::configger::ConfigValue;
 use pyo3::prelude::*;
 use pyo3::exceptions::PyValueError;
 use pyo3_polars::PyDataFrame;
@@ -51,7 +50,7 @@ pub fn get_config() -> PyResult<String> {
 /// Returns a `PyValueError` if there are issues setting the GLACIERS_CONFIG
 #[pyfunction]
 pub fn set_config(py: Python<'_>, field: String, value: PyObject) -> PyResult<()> {
-    let value: ConfigValue = value.extract(py)?;
+    let value: configger::ConfigValue = value.extract(py)?;
     configger::set_config(&field, value)
         .map_err(|e| PyValueError::new_err(format!("Error setting GLACIERS_CONFIG: {}", e))) 
 }
