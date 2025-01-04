@@ -1,42 +1,34 @@
-use glaciers::abi_reader;
-use glaciers::decoder::decode_log_folder;
-use glaciers::decoder::DecodeError;
+use glaciers::abi_reader::{self, AbiReaderError};
+use glaciers::configger::{set_config_toml, get_config, ConfiggerError};
+use glaciers::decoder::{decode_log_folder, DecoderError};
 use thiserror::Error;
-
-const ABI_DF_FILE_PATH: &str = "ABIs/ethereum__abis.parquet";
-const ABIS_FOLDER_PATH: &str = "ABIs/abi_database";
-const RAW_LOGS_FOLDER_PATH: &str = "data/logs";
 
 #[derive(Error, Debug)]
 enum AppError {
-    #[error("Decode error: {0}")]
-    DecodeError(#[from] DecodeError),
-    #[error("Polars error: {0}")]
-    PolarsError(#[from] polars::prelude::PolarsError),
-    #[error("Join error: {0}")]    
-    JoinError(#[from] tokio::task::JoinError),
-    #[error("IO error: {0}")]
-    IOError(#[from] std::io::Error),
-    #[error("ABI error: {0}")]
-    AbiError(String),
-}
-
-impl From<glaciers::abi_reader::AbiReadError> for AppError {
-    fn from(err: glaciers::abi_reader::AbiReadError) -> Self {
-        match err {
-            glaciers::abi_reader::AbiReadError::PolarsError(e) => AppError::PolarsError(e),
-            _ => AppError::AbiError(err.to_string()),
-        }
-    }
+    #[error("Configger error: {0}")]
+    ConfigError(#[from] ConfiggerError),
+    #[error("ABI Reader error: {0}")]
+    AbiError(#[from] AbiReaderError),
+    #[error("Decoder error: {0}")]
+    DecodeError(#[from] DecoderError),
 }
 
 #[tokio::main]
-async fn main() -> Result<(), AppError> {
+async fn main() {
+    if let Err(err) = async_main().await {
+        eprintln!("Error: {}", err);
+        std::process::exit(1);
+    }
+}
+
+async fn async_main() -> Result<(), AppError> {
+    let config_path = "glaciers_config_edit_example.toml";
+    set_config_toml(config_path)?;
+    println!("{:?}", get_config());
     // Read ABI list
-    abi_reader::update_abi_df(ABI_DF_FILE_PATH.to_string(), ABIS_FOLDER_PATH.to_string())?;
+    abi_reader::update_abi_df(get_config().main.abi_df_file_path, get_config().main.abi_folder_path)?;
 
     // process the log files concurrently
-    decode_log_folder(RAW_LOGS_FOLDER_PATH.to_string(), ABI_DF_FILE_PATH.to_string()).await?;
-
+    decode_log_folder(get_config().main.raw_logs_folder_path, get_config().main.abi_df_file_path).await?;
     Ok(())
 }

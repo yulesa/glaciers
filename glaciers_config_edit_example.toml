@@ -1,0 +1,26 @@
+# configuration for the CLI main component
+[main]
+# Path to the Parquet file containing the ABI (Application Binary Interface) signatures
+abi_df_file_path = "ABIs/ethereum__abis.parquet"
+# Directory containing individual ABI JSON files to be read
+abi_folder_path = "ABIs/abi_database"
+# Directory where raw blockchain logs are stored
+raw_logs_folder_path = "data/logs"
+
+# Configuration for the ABI reader component
+[abi_reader]
+# Fields used to uniquely identify each ABI item. Allowed_keys = ["hash", "full_signature", "address"]
+unique_key = ["hash", "full_signature"]
+
+# Settings for the decoder component
+[decoder]
+# Maximum number of threads spwaned which will process each log files in parallel.
+# Each thread will process one log file, and can break it into chunks.
+# Only used when processing multiple log files in folder.
+max_concurrent_files_decoding = 16
+# Maximum number of threads spwaned when processing each file.
+# Each thread will process a decoded_chunk_size of the log file.
+# Only used when processing larger log files (bigger than decoded_chunk_size).
+max_chunk_threads_per_file = 16
+# Number of log entries to process in each chunk.
+decoded_chunk_size = 500_000

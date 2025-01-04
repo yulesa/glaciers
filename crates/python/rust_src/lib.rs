@@ -1,18 +1,22 @@
 use std::str::FromStr;
 use std::path::PathBuf;
 use alloy::primitives::Address;
+use alloy::json_abi::JsonAbi;
 use pyo3::prelude::*;
+use pyo3::exceptions::PyValueError;
 use pyo3_polars::PyDataFrame;
 use polars::prelude::*;
-use pyo3::exceptions::PyValueError;
 use glaciers::decoder;
 use glaciers::abi_reader;
-use alloy::json_abi::JsonAbi;
+use glaciers::configger;
 
 /// Register in the Python module the functions tbelow hat can be called in Python
 #[pymodule]
 #[pyo3(name = "_glaciers_python")]
 fn glaciers_python(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(get_config, m)?)?;
+    m.add_function(wrap_pyfunction!(set_config, m)?)?;
+    m.add_function(wrap_pyfunction!(set_config_toml, m)?)?;
     m.add_function(wrap_pyfunction!(update_abi_df, m)?)?;
     m.add_function(wrap_pyfunction!(read_new_abi_folder, m)?)?;
     m.add_function(wrap_pyfunction!(read_new_abi_file, m)?)?;
@@ -23,6 +27,48 @@ fn glaciers_python(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(decode_log_df_with_abi_df, m)?)?;
     m.add_function(wrap_pyfunction!(polars_decode_logs, m)?)?;
     Ok(())
+}
+
+/// Get the current GLACIERS_CONFIG as a TOML string
+#[pyfunction]
+pub fn get_config() -> PyResult<String> {
+    let config = configger::get_config();
+    toml::to_string_pretty(&config)
+        .map_err(|e| PyValueError::new_err(format!("Error serializing config to TOML: {}", e)))
+}
+
+/// Set the current GLACIERS_CONFIG using field and value
+/// 
+/// # Arguments
+/// - `field`: The field to set (in the format "section.field", e.g. "main.abi_df_file_path")
+/// - `value`: The value to set the field to
+///
+/// # Returns
+/// No return
+///
+/// # Errors
+/// Returns a `PyValueError` if there are issues setting the GLACIERS_CONFIG
+#[pyfunction]
+pub fn set_config(py: Python<'_>, field: String, value: PyObject) -> PyResult<()> {
+    let value: configger::ConfigValue = value.extract(py)?;
+    configger::set_config(&field, value)
+        .map_err(|e| PyValueError::new_err(e.to_string())) 
+}
+
+/// Set the current GLACIERS_CONFIG using a TOML file
+/// 
+/// # Arguments
+/// - `path`: The path to the TOML file
+///
+/// # Returns
+/// No return
+///
+/// # Errors
+/// Returns a `PyValueError` if there are issues setting the GLACIERS_CONFIG
+#[pyfunction]
+pub fn set_config_toml(path: String) -> PyResult<()> {
+    configger::set_config_toml(&path)
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 /// Reads ABIs (Application Binary Interface) in a folder and append to the ABI parquet file
