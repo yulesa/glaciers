@@ -12,7 +12,7 @@ python_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir =  dirname(dirname(python_dir))+"/"
 print(f"Project dir: {project_dir}")
 
-gl.set_config("abi_reader.existing_df_joining_key", "id")
+gl.set_config("decoder.decoded_chunk_size", 500_000)
 gl.set_config_toml(project_dir+"glaciers_config.toml")
 config = gl.get_config()
 print(f"Glaciers config:\n{config}")

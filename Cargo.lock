@@ -1468,6 +1468,7 @@ dependencies = [
  "alloy",
  "chrono",
  "polars",
+ "pyo3",
  "serde",
  "serde_json",
  "sysinfo 0.33.0",

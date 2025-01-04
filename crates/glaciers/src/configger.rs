@@ -1,6 +1,7 @@
 use std::sync::{LazyLock, RwLock};
 use std::fs;
 use serde::{Deserialize, Serialize};
+use pyo3::FromPyObject;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -61,7 +62,7 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
     })
 });
 
-#[derive(Clone)]
+#[derive(Clone, FromPyObject)]
 pub enum ConfigValue {
     String(String),
     Number(usize),
