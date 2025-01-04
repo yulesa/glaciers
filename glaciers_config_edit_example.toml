@@ -1,3 +1,9 @@
+# Glaciers config file:
+# This file was pre loaded with all the default configurations for Glaciers. 
+# You can use a file only with the parameters you want to change, don't need to include all the parameters.
+# You can change the configurations by calling the set_config_toml(config_file_path) function 
+# or using the set_config(config_key, config_value) function.
+
 # configuration for the CLI main component
 [main]
 # Path to the Parquet file containing the ABI (Application Binary Interface) signatures
