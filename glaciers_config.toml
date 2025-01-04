@@ -4,7 +4,7 @@ abi_folder_path = "ABIs/abi_database"
 raw_logs_folder_path = "data/logs"
 
 [abi_reader]
-existing_df_joining_key = "id"
+unique_key = ["hash", "full_signature"]
 
 [decoder]
 max_concurrent_files_decoding = 16

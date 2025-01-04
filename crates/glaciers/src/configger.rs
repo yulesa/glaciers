@@ -26,7 +26,7 @@ pub struct MainConfig {
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct AbiReaderConfig {
-    pub existing_df_joining_key: String,
+    pub unique_key: Vec<String>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -51,7 +51,7 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
             raw_logs_folder_path: String::from("data/logs"),
         },
         abi_reader: AbiReaderConfig {
-            existing_df_joining_key: String::from("id"),
+            unique_key: vec![String::from("hash"), String::from("full_signature")],
         },
         decoder: DecoderConfig {
             max_concurrent_files_decoding: 16,
@@ -65,6 +65,7 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
 pub enum ConfigValue {
     String(String),
     Number(usize),
+    List(Vec<String>),
 }
 
 impl From<String> for ConfigValue {
@@ -82,6 +83,12 @@ impl From<&str> for ConfigValue {
 impl From<usize> for ConfigValue {
     fn from(n: usize) -> Self {
         ConfigValue::Number(n)
+    }
+}
+
+impl From<Vec<String>> for ConfigValue {
+    fn from(v: Vec<String>) -> Self {
+        ConfigValue::List(v)
     }
 }
 
@@ -112,8 +119,12 @@ pub fn set_config(field: &str, value: impl Into<ConfigValue>) -> Result<(), Conf
             _ => Err(ConfiggerError::InvalidFieldOrValue(field.to_string()))
         },
         "abi_reader" => match (field, value) {
-            ("existing_df_joining_key", ConfigValue::String(v)) => {
-                config.abi_reader.existing_df_joining_key = v;
+            ("unique_key", ConfigValue::List(v)) => {
+                config.abi_reader.unique_key = v; 
+                Ok(())
+            },
+            ("unique_key", ConfigValue::String(v)) => {
+                config.abi_reader.unique_key = vec![v];
                 Ok(())
             },
             _ => Err(ConfiggerError::InvalidFieldOrValue(field.to_string()))
@@ -151,6 +162,7 @@ pub fn set_config_toml(file_path: &str) -> Result<(), ConfiggerError>{
             let config_value = match value {
                 toml::Value::String(s) => ConfigValue::String(s.clone()),
                 toml::Value::Integer(n) => ConfigValue::Number(*n as usize),
+                toml::Value::Array(v) => ConfigValue::List(v.iter().map(|s| s.as_str().unwrap().to_string()).collect()),
                 _ => return Err(ConfiggerError::UnsupportedValueType(full_key))
             };
 

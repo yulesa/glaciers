@@ -4,6 +4,8 @@ use polars::prelude::*;
 use chrono::Local;
 use thiserror::Error;
 
+use crate::configger::get_config;
+
 #[derive(Error, Debug)]
 pub enum AbiReaderError {
     #[error("Polars error: {0}")]
@@ -14,6 +16,8 @@ pub enum AbiReaderError {
     InvalidFolder(String),
     #[error("Invalid ABI DF path: {0}")]
     InvalidAbiDf(String),
+    #[error("Invalid configs: {0}")]
+    InvalidConfig(String),
 }
 
 #[derive(Debug, Clone)]
@@ -174,6 +178,18 @@ pub fn read_new_abi_file(path: std::path::PathBuf) -> Result<DataFrame, AbiReade
 }
 
 pub fn read_new_abi_json(abi: JsonAbi, address: Address) -> Result<DataFrame, AbiReaderError>{
+    // Validate that unique_key only contains allowed values
+    let unique_key = get_config().abi_reader.unique_key;    
+    let allowed_keys = ["hash", "full_signature", "address"];
+    for key in &unique_key {
+        if !allowed_keys.contains(&key.as_str()) {
+            return Err(AbiReaderError::InvalidConfig(format!(
+                "Invalid unique key '{}'. Allowed values are: {:?}", 
+                key, allowed_keys
+            )));
+        }
+    }
+
     let function_rows: Vec<AbiItemRow> = abi.functions().map(|function| create_function_row(function, address)).collect();
     let event_rows: Vec<AbiItemRow> = abi.events().map(|event| create_event_row(event, address)).collect();
     let abi_rows = [function_rows, event_rows].concat();
@@ -208,6 +224,16 @@ fn create_function_row(function: &alloy::json_abi::Function, address: Address) -
         alloy::json_abi::StateMutability::NonPayable => "nonpayable".to_owned(),
         alloy::json_abi::StateMutability::Payable => "payable".to_owned(),
     };
+    
+    let unique_key = get_config().abi_reader.unique_key;
+    let mut id = function.selector().to_string();
+    if unique_key.contains(&"full_signature".to_string()) {
+        id = id + " - " + &function.full_signature()[..];
+    }
+    if unique_key.contains(&"address".to_string()) {
+        id = id + " - " + address.to_string().as_str();
+    }
+
     let function_row = AbiItemRow {
         address: address.to_string(),
         hash: Hash::Hash4(function.selector()),
@@ -215,7 +241,7 @@ fn create_function_row(function: &alloy::json_abi::Function, address: Address) -
         name: function.name.to_string(),
         anonymous: None,
         state_mutability: Some(state_mutability),
-        id: function.selector().to_string() +" - "+ &function.full_signature()[..],
+        id: id
     };
     function_row
 }
