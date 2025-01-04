@@ -52,7 +52,7 @@ pub fn get_config() -> PyResult<String> {
 pub fn set_config(py: Python<'_>, field: String, value: PyObject) -> PyResult<()> {
     let value: configger::ConfigValue = value.extract(py)?;
     configger::set_config(&field, value)
-        .map_err(|e| PyValueError::new_err(format!("Error setting GLACIERS_CONFIG: {}", e))) 
+        .map_err(|e| PyValueError::new_err(e.to_string())) 
 }
 
 /// Set the current GLACIERS_CONFIG using a TOML file
@@ -68,7 +68,7 @@ pub fn set_config(py: Python<'_>, field: String, value: PyObject) -> PyResult<()
 #[pyfunction]
 pub fn set_config_toml(path: String) -> PyResult<()> {
     configger::set_config_toml(&path)
-        .map_err(|e| PyValueError::new_err(format!("Error setting GLACIERS_CONFIG: {}", e))) 
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 /// Reads ABIs (Application Binary Interface) in a folder and append to the ABI parquet file
