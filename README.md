@@ -4,6 +4,10 @@ Glaciers is tool for batch decoding EVM (Ethereum Virtual Machine) raw logs and 
 
 We highly recommend users to read the [Decoding Key Concepts](./docs/decoding_key_concepts.md) documentation to understand how Glaciers works.
 
+If you haven't already indexed your raw logs and traces, we recommend using [Cryo](https://github.com/paradigmxyz/cryo). Although Glaciers is generic, we used Cryo as schema sources.
+
+To discuss Glaciers, contact us at [t.me/yuleandrade](http://t.me/yuleandrade)
+
 ## Features
 - Batch decode EVM event logs files from multiple contracts using an ABI database.
 - Batch decode Polars DataFrames in Python or Rust.
@@ -47,7 +51,27 @@ Glaciers divides the decoding process into two key steps:
 
 - In the first step, users generates a table containing ABI Items. Glaciers provides functions to aggregate multiple ABI files in a folder, a single ABI or even a manually inputed ABI. The resulting table can be stored either as a Parquet file or as a DataFrame, which can then be used in the next step for matching.
 
+    Available functions:
+    - `update_abi_df(abi_df_path, abi_folder_path)`
+    - `read_new_abi_folder(abi_folder_path)`
+    - `read_new_abi_file(abi_file_path)`
+    - `read_new_abi_json(abi, address)`
+
 - In the second step, raw data from function calls or events is matched with the ABI items created in Step 1. Glaciers employs a simple LEFT JOIN using the hash as the key to associate the raw log data with the corresponding ABI information. After the join, each row is decoded using a User Defined Function (UDF), producing decoded columns that are added to the schema. Glaciers offers functions to decode multiple files in a folder, single files translated to dataframes.
+
+    Available functions:
+    - `decode_log_folder(log_folder_path, abi_df_path)`
+    - `decode_log_file(log_file_path, abi_df_path)`
+    - `decode_log_df(logs_df, abi_df_path)`
+    - `decode_log_df_with_abi_df(logs_df, abi_df)`
+    - `polars_decode_logs(logs_df, abi_df)`
+
+- You can change the system configurations:
+
+    Available functions:
+    - `set_config_toml(config_file_path)`
+    - `set_config(config_key, config_value)`
+    - `get_config()`
 
 ### Examples
 

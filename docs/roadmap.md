@@ -5,18 +5,23 @@ Our goal is to develop Glaciers into a robust and efficient solution for decodin
 ## Features
 
 - [ ] Create a CLI for Glaciers.
-- [ ] Create a config file and allow users to modify Glaciers' execution parameters.
+- [x] Create a config file and allow users to modify Glaciers' execution parameters.
 - [ ] Add support for additional input/output source types beyond Parquet, such as CSV, JSON, and Pandas DataFrames.
 - [ ] Add an extra algo for contract match before hash match, and param for only matched contracts.
 - [ ] Add single-contract log decoding functions.
 - [ ] Add single-contract function call (traces) decoding functions.
 - [ ] Package Glaciers as a Polars plugin, enabling Python commands like `df.glaciers.decode_events()`.
-- [ ] Add generalized function call decoding to support algorithmic trace decoding.
+- [ ] Add generalized "function call" decoding to support algorithmic trace decoding.
 - [ ] Create an unnest function.
 - [ ] Document the repository structure to facilitate contributions.
 - [ ] Develop example files to guide new users in using Glaciers.
 
 ## What did you get done this week:
+
+### 2025-01-03
+- Added a config file and allow users to modify Glaciers' execution parameters.
+- Added new and clearer decoding functions.
+- Wrote a blog post about the project.
 
 ### 2024-12-27
  - Refactor the ABI Reader, providing functions to aggregate multiple ABI files in a folder, a single ABI, or even a manually inputted ABI, into a file or DF.
