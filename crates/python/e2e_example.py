@@ -3,20 +3,24 @@ import asyncio
 from os.path import dirname
 import polars as pl
 import glaciers as gl
+import toml
+from io import StringIO
 
-ABI_FILE_PATH = "ABIs/ethereum__abis.parquet"
-ABIS_FOLDER_PATH = "ABIs/abi_database"
-LOGS_FOLDER_PATH = "data/logs"
 LOGS_FILE_NAME = "ethereum__logs__blocks__18426253_to_18426303_example.parquet"
-
 
 python_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir =  dirname(dirname(python_dir))+"/"
 print(f"Project dir: {project_dir}")
 
-abi_file_path = project_dir+ABI_FILE_PATH
-abis_folder_path = project_dir+ABIS_FOLDER_PATH
-logs_folder_path = project_dir+LOGS_FOLDER_PATH
+gl.set_config("decoder.decoded_chunk_size", 500_000)
+gl.set_config_toml(project_dir+"glaciers_config_edit_example.toml")
+config = gl.get_config()
+print(f"Glaciers config:\n{config}")
+config = toml.load(StringIO(config))
+
+abi_file_path = project_dir+config['main']['abi_df_file_path']
+abis_folder_path = project_dir+config['main']['abi_folder_path']
+logs_folder_path = project_dir+config['main']['raw_logs_folder_path']
 
 logs_df = pl.read_parquet(f"{logs_folder_path}/{LOGS_FILE_NAME}")
 print(f"Raw logs file: \n{logs_df.head()}\n\n")

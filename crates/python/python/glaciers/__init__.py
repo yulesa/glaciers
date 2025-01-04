@@ -1,5 +1,7 @@
 """glaciers is a tool to decode EVM logs"""
-
+from ._glaciers_python import get_config
+from ._glaciers_python import set_config
+from ._glaciers_python import set_config_toml
 from ._glaciers_python import update_abi_df
 from ._glaciers_python import read_new_abi_folder
 from ._glaciers_python import read_new_abi_file
@@ -27,5 +29,8 @@ __all__ = [
     'decode_log_df',
     'async_decode_log_df_with_abi_df',
     'decode_log_df_with_abi_df',
-    'polars_decode_logs'
+    'polars_decode_logs',
+    'get_config',
+    'set_config',
+    'set_config_toml'
 ]
