@@ -1,5 +1,7 @@
 # Glaciers
 
+We are looking for financial support to continue developing Glaciers. If you are interested or know of a potential grantor, please contact us. You can read a pitch post in ["Batch Decoding with Glaciers"](https://glaciers.substack.com/p/batch-decoding-with-glaciers).
+
 Glaciers is tool for batch decoding EVM (Ethereum Virtual Machine) raw logs and traces files (traces support coming soon), producing respective decoded tables. It matches raw log and traces entries with ABI event and function signatures, adding context — what each field or value represents and type casting.
 
 We highly recommend users to read the [Decoding Key Concepts](./docs/decoding_key_concepts.md) documentation to understand how Glaciers works.
@@ -7,6 +9,7 @@ We highly recommend users to read the [Decoding Key Concepts](./docs/decoding_ke
 If you haven't already indexed your raw logs and traces, we recommend using [Cryo](https://github.com/paradigmxyz/cryo). Although Glaciers is generic, we used Cryo as schema sources.
 
 To discuss Glaciers, contact us at [t.me/yuleandrade](http://t.me/yuleandrade)
+
 
 ## Features
 - Batch decode EVM event logs files from multiple contracts using an ABI database.
