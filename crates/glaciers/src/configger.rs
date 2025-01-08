@@ -260,58 +260,40 @@ pub fn set_config_toml(file_path: &str) -> Result<(), ConfiggerError> {
     Ok(())
  }
  
- fn process_table(
-    prefix: &str, 
-    table: &toml::Table,
- ) -> Result<Vec<(String, ConfigValue)>, ConfiggerError> {
-    table.iter()
-        .map(|(key, value)| {
-            // Build full key path with prefix for nested tables
-            let full_key = if prefix.is_empty() {
-                key.to_string()
-            } else {
-                format!("{}.{}", prefix, key)
-            };
+ fn process_table(prefix: &str, table: &toml::Table) -> Result<Vec<(String, ConfigValue)>, ConfiggerError> {
+    let mut config_pairs = Vec::new();
+    
+    for (key, value) in table {
+        // Build full key path with prefix for nested tables
+        let full_key = if prefix.is_empty() {
+            key.to_string()
+        } else {
+            format!("{}.{}", prefix, key)
+        };
+        
+         // if the value is a table, process it recursively without adding it to the config_pairs, otherwise add it to the config_pairs
+        match value {
+            toml::Value::Table(nested) => config_pairs.extend(process_table(&full_key, nested)?),
             
-            match value {
-                // Recursively process nested tables
-                toml::Value::Table(nested) => process_table(&full_key, nested),
-                
-                // Handle string values, checking for hex prefix
-                toml::Value::String(s) => Ok(vec![(
-                    full_key,
-                    ConfigValue::String(s.clone())
-                )]),
- 
-                // Convert integer to usize
-                toml::Value::Integer(n) => Ok(vec![(
-                    full_key,
-                    ConfigValue::Number(*n as usize)
-                )]),
- 
-                // Convert array to Vec<String>, ensuring all elements are strings
-                toml::Value::Array(arr) => Ok(vec![(
-                    full_key.clone(),
-                    ConfigValue::List(arr.iter()
-                        .map(|v| v.as_str()
-                            .ok_or_else(|| ConfiggerError::UnsupportedValueType(full_key.clone()))
-                            .map(String::from))
-                        .collect::<Result<_, _>>()?
-                    )
-                )]),
- 
-                toml::Value::Boolean(b) => Ok(vec![(
-                    full_key,
-                    ConfigValue::Boolean(*b)
-                )]),
- 
-                // Return error for unsupported types
-                _ => Err(ConfiggerError::UnsupportedValueType(full_key)),
-            }
-        })
-        // Combine all results into a single Vec
-        .try_fold(Vec::new(), |mut acc, result| {
-            acc.extend(result?);
-            Ok(acc)
-        })
+            // Handle string values, checking for hex prefix
+            toml::Value::String(s) => config_pairs.push((full_key, ConfigValue::String(s.clone()))),
+            // Convert integer to usize 
+            toml::Value::Integer(n) => config_pairs.push((full_key, ConfigValue::Number(*n as usize))),
+            // Convert array to Vec<String>, ensuring all elements are strings
+            toml::Value::Array(arr) => {
+                let string_vec: Result<Vec<String>, _> = arr.iter()
+                    .map(|v| v.as_str()
+                        .ok_or_else(|| ConfiggerError::UnsupportedValueType(full_key.clone()))
+                        .map(String::from))
+                    .collect();
+                config_pairs.push((full_key.clone(), ConfigValue::List(string_vec?)));
+            },
+            toml::Value::Boolean(b) => config_pairs.push((full_key, ConfigValue::Boolean(*b))),
+
+            // Return error for unsupported types
+            _ => return Err(ConfiggerError::UnsupportedValueType(full_key)),
+        }
+    }
+    
+    Ok(config_pairs)
  }
