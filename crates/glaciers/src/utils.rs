@@ -82,6 +82,17 @@ pub fn read_df_file(path: &Path) -> Result<DataFrame, PolarsError> {
     }
 }
 
+pub fn write_df_file(df: &mut DataFrame, path: &Path) -> Result<(), PolarsError> {
+    let mut file = File::create(path).map_err(|e| PolarsError::ComputeError(ErrString::from(e.to_string())))?;
+    
+    match path.extension().and_then(|ext| ext.to_str()) {
+        Some("parquet") => ParquetWriter::new(&mut file).finish(df).map(|_| ()),
+        Some("csv") => CsvWriter::new(&mut file).finish(df),
+        _ => Err(PolarsError::ComputeError(ErrString::from("Invalid file extension")))
+    }?;
+    Ok(())
+}
+
 //Wrapper type around DynSolValue, to implement to_string function.
 pub struct StrDynSolValue(DynSolValue);
 

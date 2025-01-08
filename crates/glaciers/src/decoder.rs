@@ -5,7 +5,6 @@ use chrono::Local;
 use polars::prelude::*;
 use serde::Serialize;
 use std::fs;
-use std::fs::File;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 use tokio::sync::{mpsc, Mutex, Semaphore};
@@ -114,7 +113,7 @@ pub async fn decode_log_file(
 
     let ethereum_logs_df = utils::read_df_file(&log_file_path)?;
     let ethereum_logs_df = utils::hex_string_columns_to_binary(ethereum_logs_df)?;
-    let decoded_df = decode_log_df(ethereum_logs_df, abi_df_path).await?;
+    let mut decoded_df = decode_log_df(ethereum_logs_df, abi_df_path).await?;
 
     println!(
         "[{}] Finished decoding file: {}",
@@ -135,7 +134,7 @@ pub async fn decode_log_file(
         Local::now().format("%Y-%m-%d %H:%M:%S"),
         save_path
     );
-    save_decoded_logs(decoded_df.clone(), &save_path)?;
+    utils::write_df_file(&mut decoded_df, Path::new(&save_path))?;
 
     Ok(decoded_df)
 }
@@ -231,17 +230,18 @@ pub async fn decode_logs(df: DataFrame) -> Result<DataFrame, DecoderError> {
 }
 
 pub fn polars_decode_logs(df: DataFrame) -> Result<DataFrame, DecoderError> {
+    let input_schema_alias = get_config().decoder.schema.alias;
+
+    let mut alias_exprs: Vec<Expr> = input_schema_alias.as_array()
+        .iter()
+        .map(|alias| col(alias.as_str()).alias(alias.as_str()))
+        .collect();
+    alias_exprs.push(col("full_signature").alias("full_signature"));
+    
     let decoded_chuck_df = df
         .lazy()
         //apply decode_log_udf, creating a decoded_log column
-        .with_columns([as_struct(vec![
-            col("topic0"),
-            col("topic1"),
-            col("topic2"),
-            col("topic3"),
-            col("data"),
-            col("full_signature"),
-        ])
+        .with_columns([as_struct(alias_exprs)
         .map(decode_log_udf, GetOutput::from_type(DataType::String))
         .alias("decoded_log")])
         //split the udf output column (decoded_log) into 3 columns
@@ -267,7 +267,11 @@ pub fn polars_decode_logs(df: DataFrame) -> Result<DataFrame, DecoderError> {
         .select([col("*").exclude(["decoded_log"])])
         .collect()?;
 
-    Ok(decoded_chuck_df)
+    Ok(if get_config().decoder.output_hex_string_encoding {
+        utils::binary_columns_to_hex_string(decoded_chuck_df)?
+    } else {
+        decoded_chuck_df
+    })    
 }
 
 // Helper function to union DataFrames
@@ -405,10 +409,4 @@ fn map_event_sig_and_values(
     }
 
     Ok(structured_event)
-}
-
-fn save_decoded_logs(mut df: DataFrame, path: &str) -> Result<(), DecoderError> {
-    let mut file = File::create(Path::new(path))?;
-    ParquetWriter::new(&mut file).finish(&mut df)?;
-    Ok(())
 }

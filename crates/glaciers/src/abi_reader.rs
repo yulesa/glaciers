@@ -1,4 +1,5 @@
-use std::{fs::{self, File}, str::FromStr, path::Path};
+use std::{str::FromStr, path::Path};
+use std::fs;
 use alloy::{json_abi::JsonAbi, primitives::{Address, FixedBytes}};
 use polars::prelude::*;
 use chrono::Local;
@@ -90,19 +91,21 @@ pub fn update_abi_df(abi_df_path: String, abi_folder_path: String) -> Result<Dat
         new_df
     };
     
-    let mut file = File::create(path).map_err(|e| AbiReaderError::InvalidAbiDf(e.to_string()))?;
+    // let mut file = File::create(path).map_err(|e| AbiReaderError::InvalidAbiDf(e.to_string()))?;
     
-    match path.extension().and_then(|ext| ext.to_str()) {
-        Some("parquet") => ParquetWriter::new(&mut file).finish(&mut combined_df)
-            .map(|_| ())
-            .map_err(AbiReaderError::PolarsError),
-        Some("csv") => {
-            CsvWriter::new(&mut file).finish(&mut combined_df)
-            .map_err(AbiReaderError::PolarsError)
-        }
-        _ => Err(AbiReaderError::InvalidAbiDf("Invalid file extension".to_string()))
-    }?;
+    // match path.extension().and_then(|ext| ext.to_str()) {
+    //     Some("parquet") => ParquetWriter::new(&mut file).finish(&mut combined_df)
+    //         .map(|_| ())
+    //         .map_err(AbiReaderError::PolarsError),
+    //     Some("csv") => {
+    //         CsvWriter::new(&mut file).finish(&mut combined_df)
+    //         .map_err(AbiReaderError::PolarsError)
+    //     }
+    //     _ => Err(AbiReaderError::InvalidAbiDf("Invalid file extension".to_string()))
+    // }?;
 
+    utils::write_df_file(&mut combined_df, path)?;
+    
     let duplicate_hashes = combined_df.clone()
         .lazy()
         .group_by([col("hash")])
