@@ -6,7 +6,7 @@
 
 # configuration for the CLI main component
 [main]
-# Path to the Parquet file containing the ABI (Application Binary Interface) signatures
+# Path to the file containing the ABI (Application Binary Interface) signatures, it can be a csv or parquet file.
 abi_df_file_path = "ABIs/ethereum__abis.parquet"
 # Directory containing individual ABI JSON files to be read
 abi_folder_path = "ABIs/abi_database"
@@ -15,11 +15,20 @@ raw_logs_folder_path = "data/logs"
 
 # Configuration for the ABI reader component
 [abi_reader]
+# Use hex string encoding for binary columns
+output_hex_string_encoding = false
 # Fields used to uniquely identify each ABI item. Allowed_keys = ["hash", "full_signature", "address"]
 unique_key = ["hash", "full_signature"]
 
 # Settings for the decoder component
 [decoder]
+# Schema in the raw logs input dataframe
+# alias: name of the column in the input dataframe
+schema.alias = {topic0 = "topic0", topic1 = "topic1", topic2 = "topic2", topic3 = "topic3", data = "data"}
+# datatype: type of the column in the input dataframe, allowed values = ["Binary", "HexString"]
+schema.datatype = {topic0 = "HexString", topic1 = "HexString", topic2 = "HexString", topic3 = "HexString", data = "HexString"}
+# Use hex string encoding for binary columns in the outputing dataframes
+output_hex_string_encoding = true
 # Maximum number of threads spwaned which will process each log files in parallel.
 # Each thread will process one log file, and can break it into chunks.
 # Only used when processing multiple log files in folder.

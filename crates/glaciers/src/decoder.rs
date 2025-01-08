@@ -12,7 +12,8 @@ use tokio::sync::{mpsc, Mutex, Semaphore};
 use tokio::task;
 
 use crate::configger::get_config;
-use crate::matcher::{match_logs_by_topic0, MatcherError};
+use crate::matcher;
+use crate::utils;
 
 #[derive(Error, Debug)]
 pub enum DecoderError {
@@ -21,7 +22,7 @@ pub enum DecoderError {
     #[error("Polars error: {0}")]
     PolarsError(#[from] PolarsError),
     #[error("Matcher error: {0}")]
-    MatcherError(#[from] MatcherError),
+    MatcherError(#[from] matcher::MatcherError),
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
     #[error("Join error: {0}")]
@@ -40,52 +41,6 @@ struct ExtDecodedEvent {
     event_values: Vec<DynSolValue>,
     event_keys: Vec<String>,
     event_json: String,
-}
-
-//Wrapper type around DynSolValue, to implement to_string function.
-struct StringifiedValue(DynSolValue);
-
-impl StringifiedValue {
-    pub fn to_string(&self) -> Option<String> {
-        match &self.0 {
-            DynSolValue::Bool(b) => Some(b.to_string()),
-            DynSolValue::Int(i, _) => Some(i.to_string()),
-            DynSolValue::Uint(u, _) => Some(u.to_string()),
-            DynSolValue::FixedBytes(w, _) => Some(format!("0x{}", w.to_string())),
-            DynSolValue::Address(a) => Some(a.to_string()),
-            DynSolValue::Function(f) => Some(f.to_string()),
-            DynSolValue::Bytes(b) => Some(format!("0x{}", String::from_utf8_lossy(b))),
-            DynSolValue::String(s) => Some(s.clone()),
-            DynSolValue::Array(arr) => Some(format!(
-                "[{}]",
-                arr.iter()
-                    .filter_map(|v| Self::from(v.clone()).to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )),
-            DynSolValue::FixedArray(arr) => Some(format!(
-                "[{}]",
-                arr.iter()
-                    .filter_map(|v| Self::from(v.clone()).to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )),
-            DynSolValue::Tuple(tuple) => Some(format!(
-                "({})",
-                tuple
-                    .iter()
-                    .filter_map(|v| Self::from(v.clone()).to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )),
-        }
-    }
-}
-
-impl From<DynSolValue> for StringifiedValue {
-    fn from(value: DynSolValue) -> Self {
-        StringifiedValue(value)
-    }
 }
 
 pub async fn decode_log_folder(
@@ -157,7 +112,8 @@ pub async fn decode_log_file(
         file_path_str
     );
 
-    let ethereum_logs_df = read_parquet_file(&file_path_str)?.collect()?;
+    let ethereum_logs_df = utils::read_df_file(&log_file_path)?;
+    let ethereum_logs_df = utils::hex_string_columns_to_binary(ethereum_logs_df)?;
     let decoded_df = decode_log_df(ethereum_logs_df, abi_df_path).await?;
 
     println!(
@@ -188,7 +144,9 @@ pub async fn decode_log_df (
     log_df: DataFrame,
     abi_df_path: String,
 ) -> Result<DataFrame, DecoderError> {
-    let abi_df = read_parquet_file(&abi_df_path)?.collect()?;
+    let abi_df_path = Path::new(&abi_df_path);
+    let abi_df = utils::read_df_file(&abi_df_path)?;
+
     decode_log_df_with_abi_df(log_df, abi_df).await
 }
 
@@ -197,16 +155,12 @@ pub async fn decode_log_df_with_abi_df(
     abi_df: DataFrame,
 ) -> Result<DataFrame, DecoderError> {
     // perform matching
-    let matched_df = match_logs_by_topic0(log_df, abi_df)?;
+    let matched_df = matcher::match_logs_by_topic0(log_df, abi_df)?;
 
     // Split logs files in chunk, decode logs, collected and union results and save in the decoded folder
     decode_logs(matched_df).await
 }
 
-// Helper function to create lazydf from a parquet file
-fn read_parquet_file(path: &str) -> Result<LazyFrame, DecoderError> {
-    LazyFrame::scan_parquet(path, Default::default()).map_err(|err| DecoderError::PolarsError(err))
-}
 
 pub async fn decode_logs(df: DataFrame) -> Result<DataFrame, DecoderError> {
     // Create a semaphore with MAX_THREAD_NUMBER permits
@@ -440,7 +394,7 @@ fn map_event_sig_and_values(
 
     let mut structured_event: Vec<StructuredEventParam> = Vec::new();
     for (i, input) in event_sig.inputs.iter().enumerate() {
-        let str_value = StringifiedValue::from(event_values[i].clone());
+        let str_value = utils::StrDynSolValue::from(event_values[i].clone());
         let event_param = StructuredEventParam {
             name: input.name.clone(),
             index: i as u32,
