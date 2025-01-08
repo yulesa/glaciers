@@ -4,7 +4,8 @@ use polars::prelude::*;
 use chrono::Local;
 use thiserror::Error;
 
-use crate::configger::get_config;
+use crate::configger::get_config; 
+use crate::utils;
 
 #[derive(Error, Debug)]
 pub enum AbiReaderError {
@@ -37,7 +38,7 @@ impl Hash {
 
 #[derive(Debug, Clone)]
 pub struct AbiItemRow {
-    address: String,
+    address: FixedBytes<20>,
     hash: Hash,
     full_signature: String,
     name: String,
@@ -49,7 +50,7 @@ pub struct AbiItemRow {
 pub fn update_abi_df(abi_df_path: String, abi_folder_path: String) -> Result<DataFrame, AbiReaderError> {
     let path = Path::new(&abi_df_path);
     let existing_df = if path.exists() {
-        read_parquet_file(path)?
+        utils::read_df_file(path)?
     } else {
         // Create a empty dataframe with a schema so joins don't fail for missing id field.
         DataFrame::new(vec![
@@ -88,8 +89,19 @@ pub fn update_abi_df(abi_df_path: String, abi_folder_path: String) -> Result<Dat
     } else {
         new_df
     };
+    
     let mut file = File::create(path).map_err(|e| AbiReaderError::InvalidAbiDf(e.to_string()))?;
-    ParquetWriter::new(&mut file).finish(&mut combined_df).map_err(AbiReaderError::PolarsError)?;
+    
+    match path.extension().and_then(|ext| ext.to_str()) {
+        Some("parquet") => ParquetWriter::new(&mut file).finish(&mut combined_df)
+            .map(|_| ())
+            .map_err(AbiReaderError::PolarsError),
+        Some("csv") => {
+            CsvWriter::new(&mut file).finish(&mut combined_df)
+            .map_err(AbiReaderError::PolarsError)
+        }
+        _ => Err(AbiReaderError::InvalidAbiDf("Invalid file extension".to_string()))
+    }?;
 
     let duplicate_hashes = combined_df.clone()
         .lazy()
@@ -105,12 +117,6 @@ pub fn update_abi_df(abi_df_path: String, abi_folder_path: String) -> Result<Dat
     }
 
     Ok(combined_df)
-}
-
-fn read_parquet_file(path: &Path) -> Result<DataFrame, AbiReaderError> {
-    ParquetReader::new(File::open(path).map_err(|e| AbiReaderError::InvalidAbiDf(e.to_string()))?)
-        .finish()
-        .map_err(AbiReaderError::PolarsError)
 }
 
 pub fn read_new_abi_folder(abi_folder_path: &str) -> Result<DataFrame, AbiReaderError> {
@@ -131,7 +137,7 @@ pub fn read_new_abi_folder(abi_folder_path: &str) -> Result<DataFrame, AbiReader
     // Handle case where no valid files were processed
     if processed_frames.is_empty() {
         return Ok(DataFrame::new(vec![
-            Series::new_empty("address", &DataType::String),
+            Series::new_empty("address", &DataType::Binary),
             Series::new_empty("hash", &DataType::Binary),
             Series::new_empty("full_signature", &DataType::String),
             Series::new_empty("name", &DataType::String),
@@ -206,7 +212,7 @@ fn extract_address_from_path(path: &Path) -> Option<Address> {
 
 fn create_event_row(event: &alloy::json_abi::Event, address: Address) -> AbiItemRow {
     let event_row = AbiItemRow {
-        address: address.to_string(),
+        address: address.0,
         hash: Hash::Hash32(event.selector()),
         full_signature: event.full_signature(),
         name: event.name.to_string(),
@@ -235,7 +241,7 @@ fn create_function_row(function: &alloy::json_abi::Function, address: Address) -
     }
 
     let function_row = AbiItemRow {
-        address: address.to_string(),
+        address: address.0,
         hash: Hash::Hash4(function.selector()),
         full_signature: function.full_signature(),
         name: function.name.to_string(),
@@ -248,7 +254,7 @@ fn create_function_row(function: &alloy::json_abi::Function, address: Address) -
 
 pub fn create_dataframe_from_rows(rows: Vec<AbiItemRow>) -> Result<DataFrame, AbiReaderError> {
     let columns = vec![
-        Series::new("address".into(), rows.iter().map(|r| r.address.clone()).collect::<Vec<String>>()),
+        Series::new("address".into(), rows.iter().map(|r| r.address.as_slice().to_vec()).collect::<Vec<Vec<u8>>>()),
         Series::new("hash".into(), rows.iter().map(|r| r.hash.as_bytes()).collect::<Vec<Vec<u8>>>()),
         Series::new("full_signature".into(), rows.iter().map(|r| r.full_signature.clone()).collect::<Vec<String>>()),
         Series::new("name".into(), rows.iter().map(|r| r.name.clone()).collect::<Vec<String>>()),
@@ -257,7 +263,12 @@ pub fn create_dataframe_from_rows(rows: Vec<AbiItemRow>) -> Result<DataFrame, Ab
         Series::new("id".into(), rows.iter().map(|r| r.id.clone()).collect::<Vec<String>>()),
     ];
 
-    DataFrame::new(columns).map_err(AbiReaderError::PolarsError)
+    let df = DataFrame::new(columns).map_err(AbiReaderError::PolarsError)?;
+    Ok(if get_config().abi_reader.output_hex_string_encoding {
+        utils::binary_columns_to_hex_string(df)?
+    } else {
+        df
+    })
 }
 
 fn concat_dataframes(dfs: Vec<LazyFrame>) -> Result<DataFrame, AbiReaderError> {
