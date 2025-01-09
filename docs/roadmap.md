@@ -6,7 +6,8 @@ Our goal is to develop Glaciers into a robust and efficient solution for decodin
 
 - [ ] Create a CLI for Glaciers.
 - [x] Create a config file and allow users to modify Glaciers' execution parameters.
-- [ ] Add support for additional input/output source types beyond Parquet, such as CSV, JSON, and Pandas DataFrames.
+- [x] Add support for additional input/output source types beyond Parquet, such as CSV.
+- [ ] Add support for Pandas DataFrames.
 - [ ] Add an extra algo for contract match before hash match, and param for only matched contracts.
 - [ ] Add single-contract log decoding functions.
 - [ ] Add single-contract function call (traces) decoding functions.
