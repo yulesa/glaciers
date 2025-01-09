@@ -24,7 +24,6 @@ async fn main() {
 async fn async_main() -> Result<(), AppError> {
     let config_path = "glaciers_config_edit_example.toml";
     set_config_toml(config_path)?;
-    println!("{:?}", get_config());
     // Read ABI list
     abi_reader::update_abi_df(get_config().main.abi_df_file_path, get_config().main.abi_folder_path)?;
 

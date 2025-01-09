@@ -26,9 +26,11 @@ unique_key = ["hash", "full_signature"]
 # alias: name of the column in the input dataframe
 schema.alias = {topic0 = "topic0", topic1 = "topic1", topic2 = "topic2", topic3 = "topic3", data = "data"}
 # datatype: type of the column in the input dataframe, allowed values = ["Binary", "HexString"]
-schema.datatype = {topic0 = "HexString", topic1 = "HexString", topic2 = "HexString", topic3 = "HexString", data = "HexString"}
+schema.datatype = {topic0 = "Binary", topic1 = "Binary", topic2 = "Binary", topic3 = "Binary", data = "Binary"}
 # Use hex string encoding for binary columns in the outputing dataframes
-output_hex_string_encoding = true
+output_hex_string_encoding = false
+# output_file_format: format of the output saved file, allowed values = ["csv", "parquet"]
+output_file_format = "parquet"
 # Maximum number of threads spwaned which will process each log files in parallel.
 # Each thread will process one log file, and can break it into chunks.
 # Only used when processing multiple log files in folder.

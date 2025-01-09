@@ -187,18 +187,6 @@ pub fn read_new_abi_file(path: std::path::PathBuf) -> Result<DataFrame, AbiReade
 }
 
 pub fn read_new_abi_json(abi: JsonAbi, address: Address) -> Result<DataFrame, AbiReaderError>{
-    // Validate that unique_key only contains allowed values
-    let unique_key = get_config().abi_reader.unique_key;    
-    let allowed_keys = ["hash", "full_signature", "address"];
-    for key in &unique_key {
-        if !allowed_keys.contains(&key.as_str()) {
-            return Err(AbiReaderError::InvalidConfig(format!(
-                "Invalid unique key '{}'. Allowed values are: {:?}", 
-                key, allowed_keys
-            )));
-        }
-    }
-
     let function_rows: Vec<AbiItemRow> = abi.functions().map(|function| create_function_row(function, address)).collect();
     let event_rows: Vec<AbiItemRow> = abi.events().map(|event| create_event_row(event, address)).collect();
     let abi_rows = [function_rows, event_rows].concat();

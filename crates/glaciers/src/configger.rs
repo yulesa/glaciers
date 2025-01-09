@@ -41,6 +41,7 @@ pub struct AbiReaderConfig {
 pub struct DecoderConfig {
     pub schema: SchemaConfig,
     pub output_hex_string_encoding: bool,
+    pub output_file_format: String,
     pub max_concurrent_files_decoding: usize,
     pub max_chunk_threads_per_file: usize,
     pub decoded_chunk_size: usize,
@@ -118,6 +119,7 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
                 }
             },
             output_hex_string_encoding: false,
+            output_file_format: String::from("parquet"),
             max_concurrent_files_decoding: 16,
             max_chunk_threads_per_file: 16,
             decoded_chunk_size: 500_000,
@@ -179,8 +181,16 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
 
         "abi_reader" => match (field, value) {
             (Some("output_hex_string_encoding"), ConfigValue::Boolean(v)) => config.abi_reader.output_hex_string_encoding = v,
-            (Some("unique_key"), ConfigValue::List(v)) => config.abi_reader.unique_key = v,
-            (Some("unique_key"), ConfigValue::String(v)) => config.abi_reader.unique_key = vec![v],
+            (Some("unique_key"), ConfigValue::List(v)) => {
+                let v = v.iter().map(|s| s.to_lowercase()).collect();
+                validate_unique_key(&v)?;
+                config.abi_reader.unique_key = v;
+            },
+            (Some("unique_key"), ConfigValue::String(v)) => {
+                let v = vec![v.to_lowercase()];
+                validate_unique_key(&v)?;
+                config.abi_reader.unique_key = v;
+            },
             _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
         },
         
@@ -198,29 +208,29 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
                 },
                 (Some("datatype"), ConfigValue::String(v)) => {
                     match schema_field {
-                        Some("topic0") => config.decoder.schema.datatype.topic0 = match v.as_str() {
-                            "Binary" => DataType::Binary,
-                            "HexString" => DataType::HexString,
+                        Some("topic0") => config.decoder.schema.datatype.topic0 = match v.to_lowercase().as_str() {
+                            "binary" => DataType::Binary,
+                            "hexstring" => DataType::HexString,
                             _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
                         },
-                        Some("topic1") => config.decoder.schema.datatype.topic1 = match v.as_str() {
-                            "Binary" => DataType::Binary,
-                            "HexString" => DataType::HexString,
+                        Some("topic1") => config.decoder.schema.datatype.topic1 = match v.to_lowercase().as_str() {
+                            "binary" => DataType::Binary,
+                            "hexstring" => DataType::HexString,
                             _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
                         },
-                        Some("topic2") => config.decoder.schema.datatype.topic2 = match v.as_str() {
-                            "Binary" => DataType::Binary,
-                            "HexString" => DataType::HexString,
+                        Some("topic2") => config.decoder.schema.datatype.topic2 = match v.to_lowercase().as_str() {
+                            "binary" => DataType::Binary,
+                            "hexstring" => DataType::HexString,
                             _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
                         },
-                        Some("topic3") => config.decoder.schema.datatype.topic3 = match v.as_str() {
-                            "Binary" => DataType::Binary,
-                            "HexString" => DataType::HexString,
+                        Some("topic3") => config.decoder.schema.datatype.topic3 = match v.to_lowercase().as_str() {
+                            "binary" => DataType::Binary,
+                            "hexstring" => DataType::HexString,
                             _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
                         },
-                        Some("data") => config.decoder.schema.datatype.data = match v.as_str() {
-                            "Binary" => DataType::Binary,
-                            "HexString" => DataType::HexString,
+                        Some("data") => config.decoder.schema.datatype.data = match v.to_lowercase().as_str() {
+                            "binary" => DataType::Binary,
+                            "hexstring" => DataType::HexString,
                             _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
                         },
                         _ => return Err(ConfiggerError::InvalidFieldOrValue(schema_field.unwrap_or("").to_string()))
@@ -229,6 +239,11 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
                 _ => return Err(ConfiggerError::InvalidFieldOrValue(subfield.unwrap_or("").to_string()))
             },
             (Some("output_hex_string_encoding"), ConfigValue::Boolean(v)) => config.decoder.output_hex_string_encoding = v,
+            (Some("output_file_format"), ConfigValue::String(v)) => {
+                let v = v.to_lowercase();
+                validate_output_file_format(&v)?;
+                config.decoder.output_file_format = v;
+            },
             (Some("max_concurrent_files_decoding"), ConfigValue::Number(v)) => config.decoder.max_concurrent_files_decoding = v,
             (Some("max_chunk_threads_per_file"), ConfigValue::Number(v)) => config.decoder.max_chunk_threads_per_file = v,
             (Some("decoded_chunk_size"), ConfigValue::Number(v)) => config.decoder.decoded_chunk_size = v,
@@ -296,4 +311,24 @@ pub fn set_config_toml(file_path: &str) -> Result<(), ConfiggerError> {
     }
     
     Ok(config_pairs)
+ }
+
+ //Validations:
+
+ fn validate_unique_key(unique_key: &Vec<String>) -> Result<(), ConfiggerError> {
+    let allowed_keys = ["hash", "full_signature", "address"];
+    for key in unique_key {
+        if !allowed_keys.contains(&key.as_str()) {
+            return Err(ConfiggerError::InvalidFieldOrValue(format!("unique_key = '{}'. Allowed values are: {:?}", key, allowed_keys)));
+        }
+    }
+    Ok(())
+ }
+
+ fn validate_output_file_format(output_file_format: &String) -> Result<(), ConfiggerError> {
+    let allowed_formats = ["csv", "parquet"];
+    if !allowed_formats.contains(&output_file_format.as_str()) {
+        return Err(ConfiggerError::InvalidFieldOrValue(format!("output_file_format = '{}'. Allowed values are: {:?}", output_file_format, allowed_formats)));
+    }
+    Ok(())
  }

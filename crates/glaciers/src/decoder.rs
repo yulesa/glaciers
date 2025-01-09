@@ -129,12 +129,14 @@ pub async fn decode_log_file(
     // create folder if it doesn't exist
     fs::create_dir_all(file_folder_path.to_string() + "/decoded")?;
 
+    let save_path: &Path = Path::new(&save_path);
+    let save_path= save_path.with_extension(get_config().decoder.output_file_format);
     println!(
-        "[{}] Saving decoded logs to: {}",
+        "[{}] Saving decoded logs to: {:?}",
         Local::now().format("%Y-%m-%d %H:%M:%S"),
         save_path
     );
-    utils::write_df_file(&mut decoded_df, Path::new(&save_path))?;
+    utils::write_df_file(&mut decoded_df, &save_path)?;
 
     Ok(decoded_df)
 }
