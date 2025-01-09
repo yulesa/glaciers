@@ -33,27 +33,6 @@ pub fn binary_columns_to_hex_string(df: DataFrame) -> Result<DataFrame, PolarsEr
         .collect()
 }
 
-// pub fn check_raw_logs_alias(df: DataFrame) -> Result<DataFrame, PolarsError> {
-//     let input_schema_alias = get_config().decoder.schema.alias;
-    
-//     // Create mapping of current names to standard names
-//     let name_mappings: Vec<(String, &str)> = vec![
-//         (input_schema_alias.topic0, "topic0"),
-//         (input_schema_alias.topic1, "topic1"),
-//         (input_schema_alias.topic2, "topic2"),
-//         (input_schema_alias.topic3, "topic3"),
-//         (input_schema_alias.data, "data"),
-//     ];
-//     let mut df = df.lazy();
-//     // Rename columns if they differ from standard names
-//     for (current_name, standard_name) in name_mappings {
-//         if current_name != standard_name {
-//             df = df.with_column(col(current_name.as_str()).alias(standard_name));
-//         }
-//     }
-//     Ok(df.collect()?)
-// }
-
 pub fn hex_string_columns_to_binary(df: DataFrame) -> Result<DataFrame, PolarsError> {
     let input_schema_datatype = get_config().decoder.schema.datatype;
     let input_schema_alias = get_config().decoder.schema.alias;
