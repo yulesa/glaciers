@@ -366,7 +366,7 @@ fn decode(
     let event_keys: Vec<String> = structured_event.iter().map(|p| p.name.clone()).collect();
     let event_json = serde_json::to_string(&structured_event).unwrap_or_else(|_| "[]".to_string()).trim().to_string();
     // Convert the event_values to a vector of strings
-    let event_values: Vec<String> = event_values.iter().map(|d| StringifiedValue::from(d.clone()).to_string().unwrap_or("None".to_string())).collect();
+    let event_values: Vec<String> = event_values.iter().map(|d| utils::StrDynSolValue::from(d.clone()).to_string().unwrap_or("None".to_string())).collect();
 
     let extended_decoded_event = ExtDecodedEvent {
         event_values,
