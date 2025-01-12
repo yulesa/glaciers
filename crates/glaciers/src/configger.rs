@@ -127,7 +127,7 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
     })
 });
 
-#[derive(Clone, FromPyObject)]
+#[derive(Clone, FromPyObject, Debug)]
 pub enum ConfigValue {
     String(String),
     Number(usize),
@@ -181,6 +181,13 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
 
         "abi_reader" => match (field, value) {
             (Some("output_hex_string_encoding"), ConfigValue::Boolean(v)) => config.abi_reader.output_hex_string_encoding = v,
+            (Some("output_hex_string_encoding"), ConfigValue::Number(v)) => {
+                match v {
+                    1 => config.abi_reader.output_hex_string_encoding = true,
+                    0 => config.abi_reader.output_hex_string_encoding = false,
+                    _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
+                }
+            },
             (Some("unique_key"), ConfigValue::List(v)) => {
                 let v = v.iter().map(|s| s.to_lowercase()).collect();
                 validate_unique_key(&v)?;
@@ -239,6 +246,13 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
                 _ => return Err(ConfiggerError::InvalidFieldOrValue(subfield.unwrap_or("").to_string()))
             },
             (Some("output_hex_string_encoding"), ConfigValue::Boolean(v)) => config.decoder.output_hex_string_encoding = v,
+            (Some("output_hex_string_encoding"), ConfigValue::Number(v)) => {
+                match v {
+                    1 => config.abi_reader.output_hex_string_encoding = true,
+                    0 => config.abi_reader.output_hex_string_encoding = false,
+                    _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
+                }
+            },
             (Some("output_file_format"), ConfigValue::String(v)) => {
                 let v = v.to_lowercase();
                 validate_output_file_format(&v)?;
