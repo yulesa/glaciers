@@ -37,7 +37,7 @@ struct StructuredEventParam {
 }
 
 struct ExtDecodedEvent {
-    event_values: Vec<DynSolValue>,
+    event_values: Vec<String>,
     event_keys: Vec<String>,
     event_json: String,
 }
@@ -54,7 +54,7 @@ impl StringifiedValue {
             DynSolValue::FixedBytes(w, _) => Some(format!("0x{}", w.to_string())),
             DynSolValue::Address(a) => Some(a.to_string()),
             DynSolValue::Function(f) => Some(f.to_string()),
-            DynSolValue::Bytes(b) => Some(format!("0x{}", String::from_utf8_lossy(b))),
+            DynSolValue::Bytes(b) => Some(format!("0x{}", b.iter().map(|b| format!("{:02x}", b)).collect::<String>())),
             DynSolValue::String(s) => Some(s.clone()),
             DynSolValue::Array(arr) => Some(format!(
                 "[{}]",
@@ -397,12 +397,16 @@ fn decode(
 ) -> Result<ExtDecodedEvent, DecoderError> {
     let event_sig = parse_event_signature(full_signature)?;
     let decoded_event = decode_event_log(&event_sig, topics, data)?;
+    // Store the indexed values in a vector
     let mut event_values: Vec<DynSolValue> = decoded_event.indexed.clone();
+    // Extend the vector with the body(data) values
     event_values.extend(decoded_event.body.clone());
 
     let structured_event = map_event_sig_and_values(&event_sig, &event_values)?;
     let event_keys: Vec<String> = structured_event.iter().map(|p| p.name.clone()).collect();
-    let event_json = serde_json::to_string(&structured_event).unwrap_or_else(|_| "[]".to_string());
+    let event_json = serde_json::to_string(&structured_event).unwrap_or_else(|_| "[]".to_string()).trim().to_string();
+    // Convert the event_values to a vector of strings
+    let event_values: Vec<String> = event_values.iter().map(|d| StringifiedValue::from(d.clone()).to_string().unwrap_or("None".to_string())).collect();
 
     let extended_decoded_event = ExtDecodedEvent {
         event_values,
