@@ -25,7 +25,7 @@ pub enum DecoderError {
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
     #[error("Join error: {0}")]
-    JoinError(#[from] tokio::task::JoinError),
+    JoinError(#[from] tokio::task::JoinError)
 }
 
 #[derive(Debug, Serialize)]
@@ -155,6 +155,9 @@ pub async fn decode_log_df_with_abi_df(
     log_df: DataFrame,
     abi_df: DataFrame,
 ) -> Result<DataFrame, DecoderError> {
+    // Convert hash and address columns to binary if they aren't already
+    let abi_df = utils::abi_df_hex_string_columns_to_binary(abi_df)?;
+
     // perform matching
     let matched_df = matcher::match_logs_by_topic0(log_df, abi_df)?;
 

@@ -48,6 +48,30 @@ pub fn hex_string_columns_to_binary(df: DataFrame) -> Result<DataFrame, PolarsEr
 
 }
 
+pub fn abi_df_hex_string_columns_to_binary(mut abi_df: DataFrame) -> Result<DataFrame, PolarsError> {
+   // Convert hash and address columns to binary if they aren't already
+   let columns_to_convert = ["hash", "address"];
+
+   for col_name in columns_to_convert {
+       if abi_df
+           .column(col_name)?
+           .dtype() != &DataType::Binary {
+               abi_df = abi_df
+                   .lazy()
+                   .with_columns([
+                       col(col_name)
+                           .str()
+                           .strip_prefix(lit("0x"))
+                           .str()
+                           .hex_decode(true)
+                           .alias(col_name)
+                   ])
+                   .collect()?;
+       }
+   }
+   Ok(abi_df)
+}
+
 pub fn read_df_file(path: &Path) -> Result<DataFrame, PolarsError> {
     let path_ext = path.extension();
     if path_ext == Some(OsStr::new("parquet")) {
