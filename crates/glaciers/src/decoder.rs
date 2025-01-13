@@ -1,5 +1,5 @@
 use alloy::dyn_abi::{DecodedEvent, DynSolValue, EventExt};
-use alloy::json_abi::Event;
+use alloy::json_abi::{Event, EventParam};
 use alloy::primitives::FixedBytes;
 use chrono::Local;
 use polars::prelude::*;
@@ -405,8 +405,19 @@ fn map_event_sig_and_values(
         ));
     }
 
+    // Partition event inputs into indexed and non-indexed so it has the same order as the event_values
+    let (event_indexed_inputs, event_data_inputs): (Vec<EventParam>, Vec<EventParam>) = 
+        event_sig.inputs.iter()
+            .cloned() // Clone to convert &EventParam to EventParam
+            .partition(|e| e.indexed);
+
+    // Combine indexed inputs followed by detail inputs
+    let mut event_inputs = Vec::with_capacity(event_indexed_inputs.len() + event_data_inputs.len());
+    event_inputs.extend(event_indexed_inputs);
+    event_inputs.extend(event_data_inputs);
+
     let mut structured_event: Vec<StructuredEventParam> = Vec::new();
-    for (i, input) in event_sig.inputs.iter().enumerate() {
+    for (i, input) in event_inputs.iter().enumerate() {
         let str_value = utils::StrDynSolValue::from(event_values[i].clone());
         let event_param = StructuredEventParam {
             name: input.name.clone(),
