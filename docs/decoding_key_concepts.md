@@ -6,7 +6,7 @@ Decoding is the process of converting raw transaction data and logs from smart c
 
 ## Why Decoding is Necessary
 
-Smart contracts on the blockchain are stored as low-level opcodes, which are a series of instructions that the Ethereum Virtual Machine (EVM) executes. However, these opcodes are not the same as the high-level programming language (such as Solidity) in which the contracts were originally written. While Solidity compiles down into opcodes, nodes interacting with the blockchain only have access to the opcodes themselves and are unaware of the original Solidity code. As a result, they lack essential information like function names, parameter names, types, and the interpretation of outputs. Decoding is therefore necessary to make sense of raw contract data.
+Smart contracts on the blockchain are stored as low-level opcodes, which are a series of instructions that the Ethereum Virtual Machine (EVM) executes. However, these opcodes are not the same as the high-level programming language (such as Solidity) in which the contracts were originally written. While Solidity compiles down into opcodes, nodes interacting with the blockchain only have access to the opcodes themselves and are unaware of the original Solidity code. As a result, they lack essential information like function names, parameter names, types, and the interpretation of outputs. Decoding is, therefore, necessary to make sense of raw contract data.
 
 ## Core Concepts of Decoding
 
@@ -26,9 +26,9 @@ Let’s break down the key components of decoding:
 - **ABI Item**: The ABI information for each function and event.
 - **Full Signature**: This includes all the details of a function or event, such as its name, parameter types, and whether any parameters are indexed. It provides the complete context needed for accurate decoding.
 - **Signature**: A simplified version of the full signature. It consists of the function or event name and the parameter types but does not include parameter names or indexing details.
-- **Indexed Params**: Params from events can be indexed. IThis means it will be stored in topics (topic1-3), allowing them to be more easily queried and filter by the node. Non-indexed parameters are stored in the data field.
+- **Indexed Params**: Params from events can be indexed. This means it will be stored in topics (topic1-3), allowing them to be more easily queried and filtered by the node. Non-indexed parameters are stored in the data field.
 - **Hash**: The Keccak (SHA3) hash of the signature (not the full signature).
-    - Events are identified by the 32 byte Keccak hash (SHA3) of their signature, which is stored in the logs tree as topic0.
+    - Events are identified by the 32-byte Keccak hash (SHA3) of their signature, which is stored in the logs tree as topic0.
     - Function calls in the EVM are identified by the first four bytes of the data sent with a transaction. These 4 bytes signatures are derived from the first four bytes of the Keccak hash (SHA3) of the function signature.
 
 Here are some examples of the `Transfer` event and the `transfer` function:
