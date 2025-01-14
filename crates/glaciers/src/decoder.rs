@@ -97,7 +97,7 @@ pub async fn decode_log_file(
         .unwrap()
         .to_string_lossy()
         .into_owned();
-    let file_folder_path = log_file_path
+    let mut file_folder_path = log_file_path
         .parent()
         .unwrap()
         .parent()
@@ -121,15 +121,26 @@ pub async fn decode_log_file(
         file_name
     );
     
+    if !file_folder_path.is_empty() {
+        file_folder_path = file_folder_path + "/";
+    }
+        
     let save_path = format!(
-        "{}/decoded/{}",
+        "{}decoded/{}",
         file_folder_path,
-        file_name.replace("logs", "decoded_logs")
+        if file_name.contains("logs") {
+            file_name.replace("logs", "decoded_logs")
+        } else {
+            format!("decoded_logs_{}", file_name)
+        }
     );
-    // create folder if it doesn't exist
-    fs::create_dir_all(file_folder_path.to_string() + "/decoded")?;
 
     let save_path: &Path = Path::new(&save_path);
+
+    if let Some(parent) = save_path.parent() {
+        // create folder if it doesn't exist
+        fs::create_dir_all(parent.to_string_lossy().into_owned())?;
+    }
     let save_path= save_path.with_extension(get_config().decoder.output_file_format);
     println!(
         "[{}] Saving decoded logs to: {:?}",
