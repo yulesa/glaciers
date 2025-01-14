@@ -2,9 +2,9 @@
 
 We are looking for financial support to continue developing Glaciers. If you are interested or know of a potential grantor, please contact us. You can read a pitch post in ["Batch Decoding with Glaciers"](https://glaciers.substack.com/p/batch-decoding-with-glaciers).
 
-Glaciers is tool for batch decoding EVM (Ethereum Virtual Machine) raw logs and traces files (traces support coming soon), producing respective decoded tables. It matches raw log and traces entries with ABI event and function signatures, adding context — what each field or value represents and type casting.
+Glaciers is a tool for batch decoding EVM (Ethereum Virtual Machine) raw logs and traces files (traces support coming soon), producing respective decoded tables. It matches raw log and traces entries with ABI event and function signatures, adding context — what each field or value represents and type casting.
 
-We highly recommend users to read the [Decoding Key Concepts](./docs/decoding_key_concepts.md) documentation to understand how Glaciers works.
+We highly recommend users read the [Decoding Key Concepts](./docs/decoding_key_concepts.md) documentation to understand how Glaciers works.
 
 If you haven't already indexed your raw logs and traces, we recommend using [Cryo](https://github.com/paradigmxyz/cryo). Although Glaciers is generic, we used Cryo as schema sources.
 
@@ -12,9 +12,9 @@ To discuss Glaciers, contact us at [t.me/yuleandrade](http://t.me/yuleandrade)
 
 
 ## Features
-- Batch decode EVM event logs files from multiple contracts using an ABI database.
+- Batch decodes EVM event logs files from multiple contracts using an ABI database.
 - Batch decode Polars DataFrames in Python or Rust.
-- Decode multiple logs from single topic0 DataFrame in Python or Rust.
+- Decode multiple logs from a single topic0 DataFrame in Python or Rust.
 
 ## Quick Start
 ### Rust Installation
@@ -35,7 +35,7 @@ async fn main() -> {
 ```
 ### Python Installation
 
-Glaciers can also be installed as a python package:
+Glaciers can also be installed as a Python package:
 
 ```bash
 # Clone the repository for example files:
@@ -47,12 +47,12 @@ pip install glaciers
 # Run the end-to-end example
 python e2e_example.py
 ```
-For other instalations, visit the [Installation](./docs/installation.md) guide.
+For other installations, you can visit the [Installation](./docs/installation.md) guide.
 ## Usage
 
-Glaciers divides the decoding process into two key steps:
+Glaciers divide the decoding process into two key steps:
 
-- In the first step, users generates a table containing ABI Items. Glaciers provides functions to aggregate multiple ABI files in a folder, a single ABI or even a manually inputed ABI. The resulting table can be stored either as a Parquet file or as a DataFrame, which can then be used in the next step for matching.
+- In the first step, users generate a table containing ABI Items. Glaciers provide functions to aggregate multiple ABI files in a folder, a single ABI, or even a manually inputted ABI. The resulting table can be stored either as a Parquet file or as a DataFrame, which can then be used in the next step for matching.
 
     Available functions:
     - `update_abi_df(abi_df_path, abi_folder_path)`
@@ -60,7 +60,7 @@ Glaciers divides the decoding process into two key steps:
     - `read_new_abi_file(abi_file_path)`
     - `read_new_abi_json(abi, address)`
 
-- In the second step, raw data from function calls or events is matched with the ABI items created in Step 1. Glaciers employs a simple LEFT JOIN using the hash as the key to associate the raw log data with the corresponding ABI information. After the join, each row is decoded using a User Defined Function (UDF), producing decoded columns that are added to the schema. Glaciers offers functions to decode multiple files in a folder, single files translated to dataframes.
+- In the second step, raw data from function calls or events matches the ABI items created in Step 1. Glaciers employ a simple LEFT JOIN using the hash as the key to associate the raw log data with the corresponding ABI information. After the join, each row is decoded using a User Defined Function (UDF), producing decoded columns that are added to the schema. Glaciers offers functions to decode multiple files in a folder, single files translated to dataframes.
 
     Available functions:
     - `decode_log_folder(log_folder_path, abi_df_path)`
