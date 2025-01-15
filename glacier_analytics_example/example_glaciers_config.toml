@@ -1,0 +1,4 @@
+[abi_reader]
+output_hex_string_encoding = true
+[decoder]
+output_hex_string_encoding = true

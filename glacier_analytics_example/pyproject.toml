@@ -1,0 +1,17 @@
+[project]
+name = "glacier_analytics_example"
+version = "0.1.0"
+description = "Glaciers is a rust python bindings to decode raw EVM logs into decoded events."
+
+requires-python = ">=3.11"
+dependencies = [
+    "glaciers",
+    "hypersync",
+    "nbformat",
+    "pandas",
+    "plotly",
+    "polars",
+    "requests",
+    "toml",
+    "pip"
+]
