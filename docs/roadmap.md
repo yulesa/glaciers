@@ -15,9 +15,14 @@ Our goal is to develop Glaciers into a robust and efficient solution for decodin
 - [ ] Add generalized "function call" decoding to support algorithmic trace decoding.
 - [ ] Create an unnest function.
 - [ ] Document the repository structure to facilitate contributions.
-- [ ] Develop example files to guide new users in using Glaciers.
+- [x] Develop example files to guide new users in using Glaciers.
 
 ## What did you get done this week:
+
+### 2025-01-10
+- Added support for CSV files, PR in review.
+- Debugged and fixed event_values. Fixed Byte values formating as hex strings.
+- Started an example notebook for the project.
 
 ### 2025-01-03
 - Added a config file and allow users to modify Glaciers' execution parameters.
