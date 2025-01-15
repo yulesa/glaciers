@@ -1,18 +1,18 @@
 use alloy::dyn_abi::{DecodedEvent, DynSolValue, EventExt};
-use alloy::json_abi::Event;
+use alloy::json_abi::{Event, EventParam};
 use alloy::primitives::FixedBytes;
 use chrono::Local;
 use polars::prelude::*;
 use serde::Serialize;
 use std::fs;
-use std::fs::File;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 use tokio::sync::{mpsc, Mutex, Semaphore};
 use tokio::task;
 
 use crate::configger::get_config;
-use crate::matcher::{match_logs_by_topic0, MatcherError};
+use crate::matcher;
+use crate::utils;
 
 #[derive(Error, Debug)]
 pub enum DecoderError {
@@ -21,11 +21,11 @@ pub enum DecoderError {
     #[error("Polars error: {0}")]
     PolarsError(#[from] PolarsError),
     #[error("Matcher error: {0}")]
-    MatcherError(#[from] MatcherError),
+    MatcherError(#[from] matcher::MatcherError),
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
     #[error("Join error: {0}")]
-    JoinError(#[from] tokio::task::JoinError),
+    JoinError(#[from] tokio::task::JoinError)
 }
 
 #[derive(Debug, Serialize)]
@@ -40,52 +40,6 @@ struct ExtDecodedEvent {
     event_values: Vec<String>,
     event_keys: Vec<String>,
     event_json: String,
-}
-
-//Wrapper type around DynSolValue, to implement to_string function.
-struct StringifiedValue(DynSolValue);
-
-impl StringifiedValue {
-    pub fn to_string(&self) -> Option<String> {
-        match &self.0 {
-            DynSolValue::Bool(b) => Some(b.to_string()),
-            DynSolValue::Int(i, _) => Some(i.to_string()),
-            DynSolValue::Uint(u, _) => Some(u.to_string()),
-            DynSolValue::FixedBytes(w, _) => Some(format!("0x{}", w.to_string())),
-            DynSolValue::Address(a) => Some(a.to_string()),
-            DynSolValue::Function(f) => Some(f.to_string()),
-            DynSolValue::Bytes(b) => Some(format!("0x{}", b.iter().map(|b| format!("{:02x}", b)).collect::<String>())),
-            DynSolValue::String(s) => Some(s.clone()),
-            DynSolValue::Array(arr) => Some(format!(
-                "[{}]",
-                arr.iter()
-                    .filter_map(|v| Self::from(v.clone()).to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )),
-            DynSolValue::FixedArray(arr) => Some(format!(
-                "[{}]",
-                arr.iter()
-                    .filter_map(|v| Self::from(v.clone()).to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )),
-            DynSolValue::Tuple(tuple) => Some(format!(
-                "({})",
-                tuple
-                    .iter()
-                    .filter_map(|v| Self::from(v.clone()).to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )),
-        }
-    }
-}
-
-impl From<DynSolValue> for StringifiedValue {
-    fn from(value: DynSolValue) -> Self {
-        StringifiedValue(value)
-    }
 }
 
 pub async fn decode_log_folder(
@@ -143,7 +97,7 @@ pub async fn decode_log_file(
         .unwrap()
         .to_string_lossy()
         .into_owned();
-    let file_folder_path = log_file_path
+    let mut file_folder_path = log_file_path
         .parent()
         .unwrap()
         .parent()
@@ -157,8 +111,9 @@ pub async fn decode_log_file(
         file_path_str
     );
 
-    let ethereum_logs_df = read_parquet_file(&file_path_str)?.collect()?;
-    let decoded_df = decode_log_df(ethereum_logs_df, abi_df_path).await?;
+    let ethereum_logs_df = utils::read_df_file(&log_file_path)?;
+    let ethereum_logs_df = utils::hex_string_columns_to_binary(ethereum_logs_df)?;
+    let mut decoded_df = decode_log_df(ethereum_logs_df, abi_df_path).await?;
 
     println!(
         "[{}] Finished decoding file: {}",
@@ -166,20 +121,33 @@ pub async fn decode_log_file(
         file_name
     );
     
+    if !file_folder_path.is_empty() {
+        file_folder_path = file_folder_path + "/";
+    }
+        
     let save_path = format!(
-        "{}/decoded/{}",
+        "{}decoded/{}",
         file_folder_path,
-        file_name.replace("logs", "decoded_logs")
+        if file_name.contains("logs") {
+            file_name.replace("logs", "decoded_logs")
+        } else {
+            format!("decoded_logs_{}", file_name)
+        }
     );
-    // create folder if it doesn't exist
-    fs::create_dir_all(file_folder_path.to_string() + "/decoded")?;
 
+    let save_path: &Path = Path::new(&save_path);
+
+    if let Some(parent) = save_path.parent() {
+        // create folder if it doesn't exist
+        fs::create_dir_all(parent.to_string_lossy().into_owned())?;
+    }
+    let save_path= save_path.with_extension(get_config().decoder.output_file_format);
     println!(
-        "[{}] Saving decoded logs to: {}",
+        "[{}] Saving decoded logs to: {:?}",
         Local::now().format("%Y-%m-%d %H:%M:%S"),
         save_path
     );
-    save_decoded_logs(decoded_df.clone(), &save_path)?;
+    utils::write_df_file(&mut decoded_df, &save_path)?;
 
     Ok(decoded_df)
 }
@@ -188,7 +156,9 @@ pub async fn decode_log_df (
     log_df: DataFrame,
     abi_df_path: String,
 ) -> Result<DataFrame, DecoderError> {
-    let abi_df = read_parquet_file(&abi_df_path)?.collect()?;
+    let abi_df_path = Path::new(&abi_df_path);
+    let abi_df = utils::read_df_file(&abi_df_path)?;
+
     decode_log_df_with_abi_df(log_df, abi_df).await
 }
 
@@ -196,17 +166,16 @@ pub async fn decode_log_df_with_abi_df(
     log_df: DataFrame,
     abi_df: DataFrame,
 ) -> Result<DataFrame, DecoderError> {
+    // Convert hash and address columns to binary if they aren't already
+    let abi_df = utils::abi_df_hex_string_columns_to_binary(abi_df)?;
+
     // perform matching
-    let matched_df = match_logs_by_topic0(log_df, abi_df)?;
+    let matched_df = matcher::match_logs_by_topic0(log_df, abi_df)?;
 
     // Split logs files in chunk, decode logs, collected and union results and save in the decoded folder
     decode_logs(matched_df).await
 }
 
-// Helper function to create lazydf from a parquet file
-fn read_parquet_file(path: &str) -> Result<LazyFrame, DecoderError> {
-    LazyFrame::scan_parquet(path, Default::default()).map_err(|err| DecoderError::PolarsError(err))
-}
 
 pub async fn decode_logs(df: DataFrame) -> Result<DataFrame, DecoderError> {
     // Create a semaphore with MAX_THREAD_NUMBER permits
@@ -277,17 +246,18 @@ pub async fn decode_logs(df: DataFrame) -> Result<DataFrame, DecoderError> {
 }
 
 pub fn polars_decode_logs(df: DataFrame) -> Result<DataFrame, DecoderError> {
+    let input_schema_alias = get_config().decoder.schema.alias;
+
+    let mut alias_exprs: Vec<Expr> = input_schema_alias.as_array()
+        .iter()
+        .map(|alias| col(alias.as_str()).alias(alias.as_str()))
+        .collect();
+    alias_exprs.push(col("full_signature").alias("full_signature"));
+    
     let decoded_chuck_df = df
         .lazy()
         //apply decode_log_udf, creating a decoded_log column
-        .with_columns([as_struct(vec![
-            col("topic0"),
-            col("topic1"),
-            col("topic2"),
-            col("topic3"),
-            col("data"),
-            col("full_signature"),
-        ])
+        .with_columns([as_struct(alias_exprs)
         .map(decode_log_udf, GetOutput::from_type(DataType::String))
         .alias("decoded_log")])
         //split the udf output column (decoded_log) into 3 columns
@@ -313,7 +283,11 @@ pub fn polars_decode_logs(df: DataFrame) -> Result<DataFrame, DecoderError> {
         .select([col("*").exclude(["decoded_log"])])
         .collect()?;
 
-    Ok(decoded_chuck_df)
+    Ok(if get_config().decoder.output_hex_string_encoding {
+        utils::binary_columns_to_hex_string(decoded_chuck_df)?
+    } else {
+        decoded_chuck_df
+    })    
 }
 
 // Helper function to union DataFrames
@@ -406,7 +380,7 @@ fn decode(
     let event_keys: Vec<String> = structured_event.iter().map(|p| p.name.clone()).collect();
     let event_json = serde_json::to_string(&structured_event).unwrap_or_else(|_| "[]".to_string()).trim().to_string();
     // Convert the event_values to a vector of strings
-    let event_values: Vec<String> = event_values.iter().map(|d| StringifiedValue::from(d.clone()).to_string().unwrap_or("None".to_string())).collect();
+    let event_values: Vec<String> = event_values.iter().map(|d| utils::StrDynSolValue::from(d.clone()).to_string().unwrap_or("None".to_string())).collect();
 
     let extended_decoded_event = ExtDecodedEvent {
         event_values,
@@ -442,9 +416,20 @@ fn map_event_sig_and_values(
         ));
     }
 
+    // Partition event inputs into indexed and non-indexed so it has the same order as the event_values
+    let (event_indexed_inputs, event_data_inputs): (Vec<EventParam>, Vec<EventParam>) = 
+        event_sig.inputs.iter()
+            .cloned() // Clone to convert &EventParam to EventParam
+            .partition(|e| e.indexed);
+
+    // Combine indexed inputs followed by detail inputs
+    let mut event_inputs = Vec::with_capacity(event_indexed_inputs.len() + event_data_inputs.len());
+    event_inputs.extend(event_indexed_inputs);
+    event_inputs.extend(event_data_inputs);
+
     let mut structured_event: Vec<StructuredEventParam> = Vec::new();
-    for (i, input) in event_sig.inputs.iter().enumerate() {
-        let str_value = StringifiedValue::from(event_values[i].clone());
+    for (i, input) in event_inputs.iter().enumerate() {
+        let str_value = utils::StrDynSolValue::from(event_values[i].clone());
         let event_param = StructuredEventParam {
             name: input.name.clone(),
             index: i as u32,
@@ -455,10 +440,4 @@ fn map_event_sig_and_values(
     }
 
     Ok(structured_event)
-}
-
-fn save_decoded_logs(mut df: DataFrame, path: &str) -> Result<(), DecoderError> {
-    let mut file = File::create(Path::new(path))?;
-    ParquetWriter::new(&mut file).finish(&mut df)?;
-    Ok(())
 }

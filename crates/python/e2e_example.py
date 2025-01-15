@@ -133,14 +133,14 @@ with open(abi_file, 'r') as f:
 
 
 ######## Test decode_log_folder ########
-# Decode a folder of logs in parquet format.
+# Decode a folder of logs.
 #
-# This function takes a logs folder path and a topic0 parquet file path. It iterate through 
-# logs files, decode, and save them into decoded logs' parquet files.
+# This function takes a logs folder path and a abi parquet file path. It iterate through 
+# logs files, decode, and save them into decoded logs' files.
 #
 # # Arguments
-# - `log_folder_path`: Path to a folder containing the logs parquet files
-# - `topic0_path`: Path to the topic0 file containing the topic0 and event signatures
+# - `log_folder_path`: Path to a folder containing the logs files
+# - `abi_file_path`: Path to the abi parquet file
 #
 # # Returns
 # No Return
@@ -171,12 +171,12 @@ print(f"\nDecoded Logs in the log file {log_file}:\n{decoded_df.head()}\n\n")
 ######## Test decode_log_df ########
 # Decode a logs' DataFrame
 #
-# This function takes a raw logs' DataFrame and a topic0 parquet file path and decode the df
+# This function takes a raw logs' DataFrame and a abi parquet file path and decode the df
 # to a decoded logs' DataFrame.
 #
 # # Arguments
 # - `logs_df`: A DataFrame containing raw blockchain logs
-# - `topic0_path`: Path to the topic0 file containing the topic0 and event signatures
+# - `abi_file_path`: Path to the abi file containing the topic0 and event signatures
 #
 # # Returns
 # A `PyResult` containing a decoded logs' `PyDataFrame` or an error
@@ -211,7 +211,7 @@ print(f"\nDecoded Logs using ABI DataFrame:\n{decoded_df.head()}\n\n")
 # Decode dataframe event logs using ABI definitions dataframe, without multi-threading
 #
 # Args:
-#     logs_df: A polars DataFrame containing the raw logs with topic0, topic1, topic2, topic3, and data columns
+#     logs_df: A polars DataFrame containing the raw logs.
 #     abi_df: A polars DataFrame containing:
 #         - topic0: The topic0 (event signature hash) as bytes
 #         - full_signature: The full event signature as string (e.g. "Transfer(address indexed from, address indexed to, uint256 value)")
