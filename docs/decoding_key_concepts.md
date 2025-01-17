@@ -24,8 +24,11 @@ Let’s break down the key components of decoding:
 
 - **ABI (Application Binary Interface)**: The ABI is a JSON file that defines the structure of the functions and events in a smart contract. It includes information about function names, parameters, return types, and indexed fields. This file acts as the guide for decoding raw contract logs.
 - **ABI Item**: The ABI information for each function and event.
-- **Full Signature**: This includes all the details of a function or event, such as its name, parameter types, and whether any parameters are indexed. It provides the complete context needed for accurate decoding.
+- **Full Signature**: This includes all the details of a function or event, such as its name, parameter names,parameter types, and whether any parameters are indexed. It provides the complete context needed for accurate decoding.
 - **Signature**: A simplified version of the full signature. It consists of the function or event name and the parameter types but does not include parameter names or indexing details.
+- **Params**: The parameters of a function or event.
+- **Param types**: The variable types of the parameters (address, uint256, bool, etc).
+- **Param names**: Also params keys. The names of the parameters.
 - **Indexed Params**: Params from events can be indexed. This means it will be stored in topics (topic1-3), allowing them to be more easily queried and filtered by the node. Non-indexed parameters are stored in the data field.
 - **Hash**: The Keccak (SHA3) hash of the signature (not the full signature).
     - Events are identified by the 32-byte Keccak hash (SHA3) of their signature, which is stored in the logs tree as topic0.
@@ -57,6 +60,8 @@ Here are some reasons why mismatches can occur:
     
 - **Different Parameter Names**: If two events or functions have the same name and parameter types but different parameter names, they will share the same hash. While decoding remains possible, the context (i.e., what the parameters represent) may be incorrect. In many cases, this is not problematic. For example, a `Transfer` event might use `from`, `_from`, or `src` as the first parameter, and `_to`, `to`, or `dst` as the second. These variations in naming typically don’t affect the context. However, if a developer switches the two parameters—since both are of the `address` type—they will still produce the same hash, but the decoded data will be incorrect, leading to errors. To mitigate this, parameter keys and values are kept separate, with the values being trustworthy, while the keys may not be.
 - **Different Indexed Fields**: Logs with the same signature but different indexed fields will share the same hash. In this case, algorithmic decoding will match hashes, but decoding will fail because the decoding function will attempt to extract data from the wrong field.
+
+    ![diff_full_sig.png](diff_full_sig.png)
 
 ## Glaciers Decoding
 
