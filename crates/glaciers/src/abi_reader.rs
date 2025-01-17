@@ -92,19 +92,6 @@ pub fn update_abi_df(abi_df_path: String, abi_folder_path: String) -> Result<Dat
     };
 
     utils::write_df_file(&mut combined_df, path)?;
-    
-    let duplicate_hashes = combined_df.clone()
-        .lazy()
-        .group_by([col("hash")])
-        .agg([col("hash").count().alias("hash_count")])
-        .filter(col("hash_count").gt(lit(1)));
-    let duplicated_rows = combined_df.clone().lazy().join(duplicate_hashes, [col("hash")], [col("hash")], JoinArgs::default()).sort("hash", SortOptions::default()).collect()?;
-    if duplicated_rows.height() > 1 {
-         println!(
-            "[{}] Warning: ABI df contains duplicated hashes, that will cause duplicated decoded logs. 10 lines examples: {}",
-            Local::now().format("%Y-%m-%d %H:%M:%S"),            
-            duplicated_rows.head(Some(10)));
-    }
 
     Ok(combined_df)
 }
