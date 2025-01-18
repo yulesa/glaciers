@@ -178,6 +178,14 @@ fn extract_address_from_path(path: &Path) -> Option<Address> {
 }
 
 fn create_event_row(event: &alloy::json_abi::Event, address: Address) -> AbiItemRow {
+    let unique_key = get_config().abi_reader.unique_key;
+    let mut id = event.selector().to_string();
+    if unique_key.contains(&"full_signature".to_string()) {
+        id = id + " - " + &event.full_signature()[..];
+    }
+    if unique_key.contains(&"address".to_string()) {
+        id = id + " - " + address.to_string().as_str();
+    }
     let event_row = AbiItemRow {
         address: address.0,
         hash: Hash::Hash32(event.selector()),
@@ -186,7 +194,7 @@ fn create_event_row(event: &alloy::json_abi::Event, address: Address) -> AbiItem
         anonymous: Some(event.anonymous),
         num_indexed_args: Some(event.num_topics()),
         state_mutability: None,
-        id: event.selector().to_string() +" - "+ &event.full_signature()[..],
+        id: id,
     };
     event_row
 }
