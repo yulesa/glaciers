@@ -10,7 +10,7 @@ use thiserror::Error;
 use tokio::sync::{mpsc, Mutex, Semaphore};
 use tokio::task;
 
-use crate::configger::get_config;
+use crate::configger::{self, get_config};
 use crate::matcher;
 use crate::utils;
 
@@ -170,7 +170,10 @@ pub async fn decode_log_df_with_abi_df(
     let abi_df = utils::abi_df_hex_string_columns_to_binary(abi_df)?;
 
     // perform matching
-    let matched_df = matcher::match_logs_by_topic0(log_df, abi_df)?;
+    let matched_df = match get_config().decoder.logs_algorithm {
+        configger::Algorithm::Topic0Address => matcher::match_logs_by_topic0_address(log_df, abi_df)?,
+        configger::Algorithm::Topic0 => matcher::match_logs_by_topic0(log_df, abi_df)?
+    };
 
     // Split logs files in chunk, decode logs, collected and union results and save in the decoded folder
     decode_logs(matched_df).await

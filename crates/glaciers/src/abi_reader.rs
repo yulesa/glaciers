@@ -44,6 +44,7 @@ pub struct AbiItemRow {
     full_signature: String,
     name: String,
     anonymous: Option<bool>,
+    num_indexed_args: Option<usize>,
     state_mutability : Option<String>,
     id: String,
 }
@@ -60,6 +61,7 @@ pub fn update_abi_df(abi_df_path: String, abi_folder_path: String) -> Result<Dat
             Series::new_empty("full_signature", &DataType::String),
             Series::new_empty("name", &DataType::String),
             Series::new_empty("anonymous", &DataType::Boolean),
+            Series::new_empty("num_indexed_args", &DataType::UInt8),
             Series::new_empty("state_mutability", &DataType::String),
             Series::new_empty("id", &DataType::String),
         ])?
@@ -92,19 +94,6 @@ pub fn update_abi_df(abi_df_path: String, abi_folder_path: String) -> Result<Dat
     };
 
     utils::write_df_file(&mut combined_df, path)?;
-    
-    let duplicate_hashes = combined_df.clone()
-        .lazy()
-        .group_by([col("hash")])
-        .agg([col("hash").count().alias("hash_count")])
-        .filter(col("hash_count").gt(lit(1)));
-    let duplicated_rows = combined_df.clone().lazy().join(duplicate_hashes, [col("hash")], [col("hash")], JoinArgs::default()).sort("hash", SortOptions::default()).collect()?;
-    if duplicated_rows.height() > 1 {
-         println!(
-            "[{}] Warning: ABI df contains duplicated hashes, that will cause duplicated decoded logs. 10 lines examples: {}",
-            Local::now().format("%Y-%m-%d %H:%M:%S"),            
-            duplicated_rows.head(Some(10)));
-    }
 
     Ok(combined_df)
 }
@@ -189,14 +178,23 @@ fn extract_address_from_path(path: &Path) -> Option<Address> {
 }
 
 fn create_event_row(event: &alloy::json_abi::Event, address: Address) -> AbiItemRow {
+    let unique_key = get_config().abi_reader.unique_key;
+    let mut id = event.selector().to_string();
+    if unique_key.contains(&"full_signature".to_string()) {
+        id = id + " - " + &event.full_signature()[..];
+    }
+    if unique_key.contains(&"address".to_string()) {
+        id = id + " - " + address.to_string().as_str();
+    }
     let event_row = AbiItemRow {
         address: address.0,
         hash: Hash::Hash32(event.selector()),
         full_signature: event.full_signature(),
         name: event.name.to_string(),
         anonymous: Some(event.anonymous),
+        num_indexed_args: Some(event.num_topics()),
         state_mutability: None,
-        id: event.selector().to_string() +" - "+ &event.full_signature()[..],
+        id: id,
     };
     event_row
 }
@@ -224,6 +222,7 @@ fn create_function_row(function: &alloy::json_abi::Function, address: Address) -
         full_signature: function.full_signature(),
         name: function.name.to_string(),
         anonymous: None,
+        num_indexed_args: None,
         state_mutability: Some(state_mutability),
         id: id
     };
@@ -237,6 +236,7 @@ pub fn create_dataframe_from_rows(rows: Vec<AbiItemRow>) -> Result<DataFrame, Ab
         Series::new("full_signature".into(), rows.iter().map(|r| r.full_signature.clone()).collect::<Vec<String>>()),
         Series::new("name".into(), rows.iter().map(|r| r.name.clone()).collect::<Vec<String>>()),
         Series::new("anonymous".into(), rows.iter().map(|r| r.anonymous).collect::<Vec<Option<bool>>>()),
+        Series::new("num_indexed_args".into(), rows.iter().map(|r| r.num_indexed_args.map(|n| n as u32)).collect::<Vec<Option<u32>>>()),
         Series::new("state_mutability".into(), rows.iter().map(|r| r.state_mutability.clone()).collect::<Vec<Option<String>>>()),
         Series::new("id".into(), rows.iter().map(|r| r.id.clone()).collect::<Vec<String>>()),
     ];

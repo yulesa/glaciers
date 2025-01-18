@@ -18,15 +18,19 @@ raw_logs_folder_path = "data/logs"
 # Use hex string encoding for binary columns
 output_hex_string_encoding = false
 # Fields used to uniquely identify each ABI item. Allowed_keys = ["hash", "full_signature", "address"]
-unique_key = ["hash", "full_signature"]
+unique_key = ["hash", "full_signature", "address"]
 
 # Settings for the decoder component
 [decoder]
+# logs_algorithm: algorithm to use for matching logs to ABI signatures, allowed values = 
+#   - "topic0_address": match logs to ABI signatures using both topic0 and address, only contracts with ABI in the abi_df will be matched
+#   - "topic0": match logs to ABI signatures by topic0, for contracts with ABIs in the abi_df, the most frequent signature in the abi_df will be matched
+logs_algorithm = "topic0"
 # Schema in the raw logs input dataframe
 # alias: name of the column in the input dataframe
-schema.alias = {topic0 = "topic0", topic1 = "topic1", topic2 = "topic2", topic3 = "topic3", data = "data"}
+schema.alias = {topic0 = "topic0", topic1 = "topic1", topic2 = "topic2", topic3 = "topic3", data = "data", address = "address"}
 # datatype: type of the column in the input dataframe, allowed values = ["Binary", "HexString"]
-schema.datatype = {topic0 = "Binary", topic1 = "Binary", topic2 = "Binary", topic3 = "Binary", data = "Binary"}
+schema.datatype = {topic0 = "Binary", topic1 = "Binary", topic2 = "Binary", topic3 = "Binary", data = "Binary", address = "Binary"}
 # Use hex string encoding for binary columns in the outputing dataframes
 output_hex_string_encoding = false
 # output_file_format: format of the output saved file, allowed values = ["csv", "parquet"]

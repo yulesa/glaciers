@@ -39,12 +39,19 @@ pub struct AbiReaderConfig {
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct DecoderConfig {
+    pub logs_algorithm: Algorithm,
     pub schema: SchemaConfig,
     pub output_hex_string_encoding: bool,
     pub output_file_format: String,
     pub max_concurrent_files_decoding: usize,
     pub max_chunk_threads_per_file: usize,
     pub decoded_chunk_size: usize,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub enum Algorithm {
+    Topic0Address,
+    Topic0
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -60,6 +67,7 @@ pub struct AliasConfig {
     pub topic2: String,
     pub topic3: String,
     pub data: String,
+    pub address: String,
 }
 
 impl AliasConfig {
@@ -75,11 +83,12 @@ pub struct DatatypeConfig {
     pub topic2: DataType,
     pub topic3: DataType,
     pub data: DataType,
+    pub address: DataType,
 }
 
 impl DatatypeConfig {
     pub fn as_array(&self) -> Vec<DataType> {
-        vec![self.topic0.clone(), self.topic1.clone(), self.topic2.clone(), self.topic3.clone(), self.data.clone()]
+        vec![self.topic0.clone(), self.topic1.clone(), self.topic2.clone(), self.topic3.clone(), self.data.clone(), self.address.clone()]
     }
 }
 
@@ -99,9 +108,10 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
         },
         abi_reader: AbiReaderConfig {
             output_hex_string_encoding: false,
-            unique_key: vec![String::from("hash"), String::from("full_signature")],
+            unique_key: vec![String::from("hash"), String::from("full_signature"), String::from("address")],
         },
         decoder: DecoderConfig {
+            logs_algorithm: Algorithm::Topic0,
             schema: SchemaConfig {
                 alias: AliasConfig {
                     topic0: String::from("topic0"),
@@ -109,6 +119,7 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
                     topic2: String::from("topic2"),
                     topic3: String::from("topic3"),
                     data: String::from("data"),
+                    address: String::from("address"),
                 },
                 datatype: DatatypeConfig {
                     topic0: DataType::Binary,
@@ -116,6 +127,7 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
                     topic2: DataType::Binary,
                     topic3: DataType::Binary,
                     data: DataType::Binary,
+                    address: DataType::Binary,
                 }
             },
             output_hex_string_encoding: false,
@@ -202,6 +214,13 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
         },
         
         "decoder" => match (field, value) {
+            (Some("logs_algorithm"), ConfigValue::String(v)) => {
+                match v.to_lowercase().as_str() {
+                    "topic0_address" => config.decoder.logs_algorithm = Algorithm::Topic0Address,
+                    "topic0" => config.decoder.logs_algorithm = Algorithm::Topic0,
+                    _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
+                }
+            },
             (Some("schema"), value) => match (subfield, value) {
                 (Some("alias"), ConfigValue::String(v)) => {
                     match schema_field {
@@ -210,6 +229,7 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
                         Some("topic2") => config.decoder.schema.alias.topic2 = v,
                         Some("topic3") => config.decoder.schema.alias.topic3 = v,
                         Some("data") => config.decoder.schema.alias.data = v,
+                        Some("address") => config.decoder.schema.alias.address = v,
                         _ => return Err(ConfiggerError::InvalidFieldOrValue(schema_field.unwrap_or("").to_string()))
                     }
                 },
@@ -236,6 +256,11 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
                             _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
                         },
                         Some("data") => config.decoder.schema.datatype.data = match v.to_lowercase().as_str() {
+                            "binary" => DataType::Binary,
+                            "hexstring" => DataType::HexString,
+                            _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
+                        },
+                        Some("address") => config.decoder.schema.datatype.address = match v.to_lowercase().as_str() {
                             "binary" => DataType::Binary,
                             "hexstring" => DataType::HexString,
                             _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
