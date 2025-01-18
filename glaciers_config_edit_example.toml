@@ -18,7 +18,7 @@ raw_logs_folder_path = "data/logs"
 # Use hex string encoding for binary columns
 output_hex_string_encoding = false
 # Fields used to uniquely identify each ABI item. Allowed_keys = ["hash", "full_signature", "address"]
-unique_key = ["hash", "full_signature"]
+unique_key = ["hash", "full_signature", "address"]
 
 # Settings for the decoder component
 [decoder]

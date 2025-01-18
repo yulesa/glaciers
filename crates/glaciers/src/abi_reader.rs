@@ -44,6 +44,7 @@ pub struct AbiItemRow {
     full_signature: String,
     name: String,
     anonymous: Option<bool>,
+    num_indexed_args: Option<usize>,
     state_mutability : Option<String>,
     id: String,
 }
@@ -60,6 +61,7 @@ pub fn update_abi_df(abi_df_path: String, abi_folder_path: String) -> Result<Dat
             Series::new_empty("full_signature", &DataType::String),
             Series::new_empty("name", &DataType::String),
             Series::new_empty("anonymous", &DataType::Boolean),
+            Series::new_empty("num_indexed_args", &DataType::UInt8),
             Series::new_empty("state_mutability", &DataType::String),
             Series::new_empty("id", &DataType::String),
         ])?
@@ -182,6 +184,7 @@ fn create_event_row(event: &alloy::json_abi::Event, address: Address) -> AbiItem
         full_signature: event.full_signature(),
         name: event.name.to_string(),
         anonymous: Some(event.anonymous),
+        num_indexed_args: Some(event.num_topics()),
         state_mutability: None,
         id: event.selector().to_string() +" - "+ &event.full_signature()[..],
     };
@@ -211,6 +214,7 @@ fn create_function_row(function: &alloy::json_abi::Function, address: Address) -
         full_signature: function.full_signature(),
         name: function.name.to_string(),
         anonymous: None,
+        num_indexed_args: None,
         state_mutability: Some(state_mutability),
         id: id
     };
@@ -224,6 +228,7 @@ pub fn create_dataframe_from_rows(rows: Vec<AbiItemRow>) -> Result<DataFrame, Ab
         Series::new("full_signature".into(), rows.iter().map(|r| r.full_signature.clone()).collect::<Vec<String>>()),
         Series::new("name".into(), rows.iter().map(|r| r.name.clone()).collect::<Vec<String>>()),
         Series::new("anonymous".into(), rows.iter().map(|r| r.anonymous).collect::<Vec<Option<bool>>>()),
+        Series::new("num_indexed_args".into(), rows.iter().map(|r| r.num_indexed_args.map(|n| n as u32)).collect::<Vec<Option<u32>>>()),
         Series::new("state_mutability".into(), rows.iter().map(|r| r.state_mutability.clone()).collect::<Vec<Option<String>>>()),
         Series::new("id".into(), rows.iter().map(|r| r.id.clone()).collect::<Vec<String>>()),
     ];

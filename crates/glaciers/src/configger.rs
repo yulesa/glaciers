@@ -108,7 +108,7 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
         },
         abi_reader: AbiReaderConfig {
             output_hex_string_encoding: false,
-            unique_key: vec![String::from("hash"), String::from("full_signature")],
+            unique_key: vec![String::from("hash"), String::from("full_signature"), String::from("address")],
         },
         decoder: DecoderConfig {
             logs_algorithm: Algorithm::Topic0,
