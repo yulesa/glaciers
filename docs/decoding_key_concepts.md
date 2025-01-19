@@ -14,7 +14,7 @@ Decoding involves translating the raw log data into a human-readable format, com
 
 Basic decoding is supported by libraries such as **[alloy-rs](https://github.com/alloy-rs)**, **[ethers.js](https://github.com/ethers-io/ethers.js)**, and **[web3.py](https://github.com/ethereum/web3.py)**, commonly used to help developers interact with the Ethereum Virtual Machine (EVM). These libraries offer methods that allow users to input a contract ABI and a raw log, and then output a decoded version of the log. This approach works well for logs originating from well-known contract sources, where the ABI perfectly matches the contract code. However, processing data at scale introduces several challenges.
 
-Large-scale decoding requires users to maintain an extensive ABI database. Since ABIs cannot be directly retrieved from the blockchain, they are typically sourced from off-chain providers like Etherscan, where contracts are submitted for transparency and auditability.  However, it’s unlikely that we will have access to every contract code or ABI.
+Large-scale decoding requires users to maintain an extensive ABI database. Since ABIs cannot be directly retrieved from the blockchain, they are typically sourced from offchain providers like Etherscan, where contracts are submitted for transparency and auditability.  However, it’s unlikely that we will have access to every contract code or ABI.
 
 Decoding logs from contracts for which the code or ABI is unknown is still possible. This is because contracts often reuse code from other contracts, meaning functions and events frequently share the same signature (name and parameters). In such cases, the ABI of another contract can be used to decode the logs.
 
@@ -44,7 +44,7 @@ Here are some examples of the `Transfer` event and the `transfer` function:
 
 With these concepts in mind, we can implement two methods for decoding data at scale:
 
-1. Exact **ABI** match**:** This method, pioneered by Dune, involves users providing the ABI either manually or by downloading it from Etherscan using the contract's address. Events and function calls are decoded using only an exact match of the ABI, ensuring accuracy. However, this method depends on having a comprehensive set of contract submissions to ensure broad coverage.
+1. Exact **ABI** match: This method, pioneered by Dune, involves users providing the ABI either manually or by downloading it from Etherscan using the contract's address. Events and function calls are decoded using only an exact match of the ABI, ensuring accuracy. However, this method depends on having a comprehensive set of contract submissions to ensure broad coverage.
 
 2. **Algorithmic Decoding:** This method uses algorithms to match onchain information about the logs and signature hashes (topic0, 4-byte) with any available ABI. It is particularly useful for analytics because it allows the exploration of contract data without needing prior knowledge of the contract's code. However, it requires handling potential mismatches.
 
@@ -58,11 +58,16 @@ Here are some reasons why mismatches can occur:
     
     ![hash_collision.png](hash_collision.png)
     
-- **Different Parameter Names**: If two events or functions have the same name and parameter types but different parameter names, they will share the same hash. While decoding remains possible, the context (i.e., what the parameters represent) may be incorrect. In many cases, this is not problematic. For example, a `Transfer` event might use `from`, `_from`, or `src` as the first parameter, and `_to`, `to`, or `dst` as the second. These variations in naming typically don’t affect the context. However, if a developer switches the two parameters—since both are of the `address` type—they will still produce the same hash, but the decoded data will be incorrect, leading to errors. To mitigate this, parameter keys and values are kept separate, with the values being trustworthy, while the keys may not be.
-- **Different Indexed Fields**: Logs with the same signature but different indexed fields will share the same hash. In this case, algorithmic decoding will match hashes, but decoding will fail because the decoding function will attempt to extract data from the wrong field.
+- **Different Parameter Names**: If two events or functions have the same name and parameter types but different parameter names, they will share the same hash. While decoding remains possible, the context (i.e., what the parameters represent) may be incorrect. In many cases, this is not problematic. For example, a `Transfer` event might use `from`, `_from`, `sender`, or `src` as the first parameter, and `_to`, `to`, `receiver`, or `dst` as the second. These variations in naming typically don’t affect the context. However, the parameter has a complete different meaning or if a developer switches the two parameters around, since both are of the `address` type, they will still produce the same hash, and the decoded data will be incorrect, leading to errors. To mitigate this, parameter keys and values are kept separate after decoding, with the values being trustworthy, while the keys may not be.
 
     ![diff_full_sig.png](diff_full_sig.png)
+    *Examples of cases where the same hash won't cause a difference in context*
 
 ## Glaciers Decoding
 
-Glaciers' algorithm for matching functions and logs with signatures uses a simple ``LEFT JOIN``, with the hash as the key. This means it will attempt to decode any raw data using the provided ABI items. If multiple hashes are present in the ABI, the algorithm will duplicate the log in the decoded output for each matching hash. Since unintended duplicates in the output are generally undesirable, the user must ensure that hashes are unique within each batch.
+Glaciers has two algorithms for decoding:
+
+1. `topic0_address`: match logs to ABI signatures using both topic0 and address. Because this is guaranteed to be unique, only contracts with ABI in the abi_df will be matched and decoded.
+2. `topic0`: match logs to ABI signatures by topic0. First, it will try to find contract in the database using the method above. If not found, it will try match the log's hash with the most frequent signature in the abi_df.
+
+Later, if a problematic mismatch is found, the user can manually add the ABI to the abi_df and run a backfill to fix the mismatch.

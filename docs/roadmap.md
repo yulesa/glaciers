@@ -8,7 +8,7 @@ Our goal is to develop Glaciers into a robust and efficient solution for decodin
 - [x] Create a config file and allow users to modify Glaciers' execution parameters.
 - [x] Add support for additional input/output source types beyond Parquet, such as CSV.
 - [ ] Add support for Pandas DataFrames.
-- [ ] Add an extra algo for contract match before hash match, and param for only matched contracts.
+- [x] Add an extra algo for contract match before hash match.
 - [ ] Add single-contract log decoding functions.
 - [ ] Add single-contract function call (traces) decoding functions.
 - [ ] Package Glaciers as a Polars plugin, enabling Python commands like `df.glaciers.decode_events()`.
@@ -18,6 +18,12 @@ Our goal is to develop Glaciers into a robust and efficient solution for decodin
 - [x] Develop example files to guide new users in using Glaciers.
 
 ## What did you get done this week:
+
+### 2025-01-17
+- Merged PR supporting CSV files.
+- Finished the analytics example notebook.
+- Added a new matching algorithm: `topic0_address`, and updated the provided ABI db.
+- Had discussions with some EVM indexers interested in using Glaciers.
 
 ### 2025-01-10
 - Added support for CSV files, PR in review.

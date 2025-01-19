@@ -24,7 +24,7 @@ unique_key = ["hash", "full_signature", "address"]
 [decoder]
 # logs_algorithm: algorithm to use for matching logs to ABI signatures, allowed values = 
 #   - "topic0_address": match logs to ABI signatures using both topic0 and address, only contracts with ABI in the abi_df will be matched
-#   - "topic0": match logs to ABI signatures by topic0, for contracts with ABIs in the abi_df, the most frequent signature in the abi_df will be matched
+#   - "topic0": match logs to ABI signatures by topic0, for contracts without ABIs in the abi_df, the most frequent signature in the abi_df will be matched
 logs_algorithm = "topic0"
 # Schema in the raw logs input dataframe
 # alias: name of the column in the input dataframe
