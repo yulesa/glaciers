@@ -4,6 +4,10 @@
 # You can change the configurations by calling the set_config_toml(config_file_path) function 
 # or using the set_config(config_key, config_value) function.
 
+[glaciers]
+# prefered_dataframe_type: prefered dataframe type for the outputs of the glaciers functions, allowed values = ["polars", "pandas"]
+prefered_dataframe_type = "polars"  
+
 # configuration for the CLI main component
 [main]
 # Path to the file containing the ABI (Application Binary Interface) signatures, it can be a csv or parquet file.
