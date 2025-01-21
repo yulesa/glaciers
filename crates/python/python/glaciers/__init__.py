@@ -11,6 +11,7 @@ from ._decode_log_df import decode_log_df
 from ._decode_log_df_with_abi_df import async_decode_log_df_with_abi_df
 from ._decode_log_df_with_abi_df import decode_log_df_with_abi_df
 from ._polars_decode_logs import polars_decode_logs
+from ._decode_log_df_using_single_contract import decode_log_df_using_single_contract
 from ._dataframe_utils import to_prefered_type, DataFrameType
 
 def update_abi_df(path: str, folder: str) -> DataFrameType:
@@ -43,6 +44,7 @@ __all__ = [
     'async_decode_log_df_with_abi_df',
     'decode_log_df_with_abi_df',
     'polars_decode_logs',
+    'decode_log_df_using_single_contract',
     'get_config',
     'set_config',
     'set_config_toml'
