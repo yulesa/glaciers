@@ -7,6 +7,8 @@
 [glaciers]
 # prefered_dataframe_type: prefered dataframe type for the outputs of the glaciers functions, allowed values = ["polars", "pandas"]
 prefered_dataframe_type = "polars"  
+# Use hex string encoding for binary columns in the unnesting function
+unnesting_hex_string_encoding = false
 
 # configuration for the CLI main component
 [main]
@@ -19,7 +21,7 @@ raw_logs_folder_path = "data/logs"
 
 # Configuration for the ABI reader component
 [abi_reader]
-# Use hex string encoding for binary columns
+# Use hex string encoding for binary columns for the abi_df
 output_hex_string_encoding = false
 # Fields used to uniquely identify each ABI item. Allowed_keys = ["hash", "full_signature", "address"]
 unique_key = ["hash", "full_signature", "address"]
