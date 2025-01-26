@@ -1,5 +1,4 @@
 import os
-import asyncio
 from os.path import dirname
 import polars as pl
 import glaciers as gl
@@ -222,15 +221,37 @@ print(f"\nDecoded Logs using ABI DataFrame:\n{decoded_df.head()}\n\n")
 #     - event_keys: The parameter names
 #     - event_json: JSON representation of the decoded event
 # Transfer event
-TRANSFER_EVENT = "Transfer(address indexed from, address indexed to, uint256 value)"
+TRANSFER_EVENT = "event Transfer(address indexed from, address indexed to, uint256 value)"
 TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
 # Create ABI DataFrame
 abi_df = pl.DataFrame(
     {
         "topic0": TRANSFER_TOPIC,
         "full_signature": TRANSFER_EVENT,
+        "name": "Transfer",
     }
 )
 # Decode the events
 decoded_df = gl.polars_decode_logs(logs_df, abi_df)
 print(f"\nDecoded Logs DataFrame:\n{decoded_df.head(5)}\n\n")
+
+
+######## Test unnest_event ########
+# Filter and unnest an event from a decoded logs' DataFrame. After filtering using the combination of the
+# optional arguments, the event needs to be unique.
+#
+# Arguments
+# - `decoded_log_df`: A DataFrame containing the decoded logs
+# - `event_name`: Optional, default None. The name of the event to unnest
+# - `full_signature`: Optional, default None. The full signature of the event to unnest
+# - `event_address`: Optional, default None. The address of the event to unnest
+# - `topic0`: Optional, default None. The topic0 of the event to unnest
+#
+# Returns
+# A `PyResult` containing a unnested event's `PyDataFrame` or an error
+#
+# Errors
+# Returns a `PyValueError` if there are issues processing the unnesting or the event is not unique.
+
+unnested_df = gl.unnest_event(decoded_df, full_signature='event Transfer(address indexed from, address indexed to, uint256 value)')
+print(f"\nUnnested Logs DataFrame:\n{unnested_df.head(5)}\n\n")

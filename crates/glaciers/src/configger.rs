@@ -28,6 +28,7 @@ pub struct Config {
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct GlaciersConfig {
     pub prefered_dataframe_type: PreferedDataframeType,
+    pub unnesting_hex_string_encoding: bool,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -115,6 +116,7 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
     RwLock::new(Config {
         glaciers: GlaciersConfig {
             prefered_dataframe_type: PreferedDataframeType::Polars,
+            unnesting_hex_string_encoding: false,
         },
         main: MainConfig {
             abi_df_file_path: String::from("ABIs/ethereum__abis.parquet"),
@@ -206,7 +208,8 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
                     "pandas" => config.glaciers.prefered_dataframe_type = PreferedDataframeType::Pandas,
                     _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
                 }
-            }
+            },
+            (Some("unnesting_hex_string_encoding"), ConfigValue::Boolean(v)) => config.glaciers.unnesting_hex_string_encoding = v,
             _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
         },
         "main" => match (field, value) {

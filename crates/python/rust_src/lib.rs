@@ -9,6 +9,7 @@ use polars::prelude::*;
 use glaciers::decoder;
 use glaciers::abi_reader;
 use glaciers::configger;
+use glaciers::miscellaneous;
 
 /// Register in the Python module the functions tbelow hat can be called in Python
 #[pymodule]
@@ -26,6 +27,7 @@ fn glaciers_python(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(decode_log_df, m)?)?;
     m.add_function(wrap_pyfunction!(decode_log_df_with_abi_df, m)?)?;
     m.add_function(wrap_pyfunction!(polars_decode_logs, m)?)?;
+    m.add_function(wrap_pyfunction!(decode_log_df_using_single_contract, m)?)?;
     Ok(())
 }
 
@@ -310,4 +312,32 @@ pub fn polars_decode_logs(logs_df: PyDataFrame, abi_df: PyDataFrame) -> PyResult
         .map_err(|e| PyValueError::new_err(format!("Decoding error: {}", e)))?;
 
     Ok(PyDataFrame(result))
+}
+
+/// Decode a DataFrame of logs using a single contract address
+///
+/// This function takes a raw logs' DataFrame and a contract address, download the ABI from Sourcify
+/// and decode it to a decoded logs' DataFrame.
+///
+/// # Arguments
+/// - `logs_df`: A DataFrame containing raw blockchain logs
+/// - `contract_address`: The contract address as a hex string
+///
+/// # Returns
+/// A `PyResult` containing a decoded logs' `PyDataFrame` or an error
+///
+/// # Errors
+/// Returns a `PyValueError` if there are issues processing the logs
+#[pyfunction]
+pub fn decode_log_df_using_single_contract(py: Python<'_>, logs_df: PyDataFrame, contract_address: String) -> PyResult<&PyAny> {
+    // Convert PyDataFrame to native polars DataFrame
+    let logs_df = DataFrame::from(logs_df);
+    let result = pyo3_asyncio::tokio::future_into_py(py, async move {
+        match miscellaneous::decode_log_df_using_single_contract(logs_df, contract_address).await {
+            Ok(df) => Ok(PyDataFrame(df)),
+            Err(e) => Err(PyValueError::new_err(format!("Decoding error: {}", e))),
+        }
+    })?;
+
+    Ok(result)
 }

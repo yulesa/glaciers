@@ -108,7 +108,7 @@ impl StrDynSolValue {
             DynSolValue::FixedBytes(w, _) => Some(format!("0x{}", w.to_string())),
             DynSolValue::Address(a) => Some(a.to_string()),
             DynSolValue::Function(f) => Some(f.to_string()),
-            DynSolValue::Bytes(b) => Some(format!("0x{}", String::from_utf8_lossy(b))),
+            DynSolValue::Bytes(b) => Some(format!("0x{}", b.iter().map(|b| format!("{:02x}", b)).collect::<String>())),
             DynSolValue::String(s) => Some(s.clone()),
             DynSolValue::Array(arr) => Some(format!(
                 "[{}]",
