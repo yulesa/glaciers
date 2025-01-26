@@ -25,8 +25,8 @@ def read_new_abi_file(file: str) -> DataFrameType:
     df = _glaciers_python.read_new_abi_file(file)
     return to_prefered_type(df)
 
-def read_new_abi_json(file: str) -> DataFrameType:
-    df = _glaciers_python.read_new_abi_json(file)
+def read_new_abi_json(file: str, address: str) -> DataFrameType:
+    df = _glaciers_python.read_new_abi_json(file, address)
     return to_prefered_type(df)
 
 __all__ = [
