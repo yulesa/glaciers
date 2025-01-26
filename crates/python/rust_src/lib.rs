@@ -269,13 +269,13 @@ pub fn decode_log_df_with_abi_df(py: Python<'_>, logs_df: PyDataFrame, abi_df: P
 /// Decode dataframe event logs using ABI definitions dataframe, without multi-threading
 ///
 /// Args:
-///     logs_df: A polars DataFrame containing the raw logs with topic0, topic1, topic2, topic3, and data columns
-///     abi_df: A polars DataFrame containing:
+///     logs_df: A DataFrame containing the raw logs with topic0, topic1, topic2, topic3, and data columns
+///     abi_df: A DataFrame containing:
 ///         - topic0: The topic0 (event signature hash) as bytes
 ///         - full_signature: The full event signature as string (e.g. "Transfer(addreds indexed from, address indexed to, uint256 value)")
 ///
 /// Returns:
-///     A polars DataFrame containing the decoded events with additional columns:
+///     A DataFrame containing the decoded events with additional columns:
 ///     - event_values: The decoded parameter values
 ///     - event_keys: The parameter names
 ///     - event_json: JSON representation of the decoded event

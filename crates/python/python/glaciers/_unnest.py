@@ -54,7 +54,6 @@ def unnest_event(
         unnesting_hex_string_encoding = toml.loads(get_config())["glaciers"]["unnesting_hex_string_encoding"]
 
         for (i, type) in enumerate(value_types):
-            print(type)
             if type == "bool":
                 filtered_df = filtered_df.with_columns(pl.col("event_values").str.json_decode().list.get(i).cast(pl.Boolean).alias(f"{field_names[i]}"))
             elif "int" in type:

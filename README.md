@@ -13,7 +13,7 @@ To discuss Glaciers, contact us at [t.me/yuleandrade](http://t.me/yuleandrade)
 
 ## Features
 - Batch decodes EVM event logs files from multiple contracts using an ABI database.
-- Batch decode Polars DataFrames in Python or Rust.
+- Batch decode Polars and Pandas DataFrames in Rust or Python.
 - Decode multiple logs from a single topic0 DataFrame in Python or Rust.
 
 ## Quick Start
@@ -63,7 +63,8 @@ Glaciers divide the decoding process into two key steps:
 - In the second step, raw data from function calls or events matches the ABI items created in Step 1. Glaciers employs two algorithms to match logs to ABI signatures:
     - `topic0_address`: match logs to ABI signatures using both topic0 and address. Only contracts with ABI in the abi_df will be matched.
     - `topic0`: match logs to ABI signatures by topic0. For contracts without ABIs in the abi_df, the most frequent signature in the abi_df will be matched.
-After the join, each row is decoded using a User Defined Function (UDF), producing decoded columns that are added to the schema. Glaciers offers functions to decode multiple files in a folder, single files translated to dataframes.
+
+    After the join, each row is decoded using a User Defined Function (UDF), producing decoded columns that are added to the schema. Glaciers offers functions to decode multiple files in a folder, single files translated to dataframes.
 
     Available functions:
     - `decode_log_folder(log_folder_path, abi_df_path)`
@@ -78,6 +79,10 @@ After the join, each row is decoded using a User Defined Function (UDF), produci
     - `set_config_toml(config_file_path)`
     - `set_config(config_key, config_value)`
     - `get_config()`
+
+- You also have a shortcut function to decode logs from a single contract (`decode_log_df_using_single_contract(log_df, contract_address)`). This function will download the ABI from Sourcify and decode the logs. Nevertheless, we recommend following the normal flow and creating the abi_df first.
+
+- There is also a helper function to unnest an unique event from a decoded logs' DataFrame: `unnest_event(decoded_logs_df, full_signature=None, event_name=None, event_address=None, topic0=None)`. It will only work if the full_signature is unique after filtering the logs_df using the optional arguments (full_signature, event_name, event_address, topic0). It's only available in Python.
 
 ### Examples
 
@@ -99,7 +104,7 @@ The following columns will be added to your original table:
     - ('anonymous', Boolean):       False
     - ('event_values', String):     '[Address(0xeed...), Address(0x7a2...), Uint(3151936770479715624, 256)]'
     - ('event_keys', String):       '["from", "to", "value"]'
-    - ('event_json', String):       [{"name":"from","index":0,"value_type":"address","value":"0xeEDfF72A683058F8FF531e8c98575f920430FdC5"}...]
+    - ('event_json', String):       [{"name":"from","index":0,"value_type":"address","value":"0xeED..."}...]
 
 ## Roadmap
 
