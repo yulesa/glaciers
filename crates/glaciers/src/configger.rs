@@ -19,9 +19,21 @@ pub enum ConfiggerError {
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct Config {
+    pub glaciers: GlaciersConfig,
     pub main: MainConfig,
     pub abi_reader: AbiReaderConfig,
     pub decoder: DecoderConfig,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct GlaciersConfig {
+    pub prefered_dataframe_type: PreferedDataframeType,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub enum PreferedDataframeType {
+    Polars,
+    Pandas
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -101,6 +113,9 @@ pub enum DataType {
 
 pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
     RwLock::new(Config {
+        glaciers: GlaciersConfig {
+            prefered_dataframe_type: PreferedDataframeType::Polars,
+        },
         main: MainConfig {
             abi_df_file_path: String::from("ABIs/ethereum__abis.parquet"),
             abi_folder_path: String::from("ABIs/abi_database"),
@@ -184,6 +199,16 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
     let schema_field = config_path.split(".").nth(3);
 
     match section {
+        "glaciers" => match (field, value) {
+            (Some("prefered_dataframe_type"), ConfigValue::String(v)) => {
+                match v.to_lowercase().as_str() {
+                    "polars" => config.glaciers.prefered_dataframe_type = PreferedDataframeType::Polars,
+                    "pandas" => config.glaciers.prefered_dataframe_type = PreferedDataframeType::Pandas,
+                    _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
+                }
+            }
+            _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
+        },
         "main" => match (field, value) {
             (Some("abi_df_file_path"), ConfigValue::String(v)) => config.main.abi_df_file_path = v,
             (Some("abi_folder_path"), ConfigValue::String(v)) => config.main.abi_folder_path = v,

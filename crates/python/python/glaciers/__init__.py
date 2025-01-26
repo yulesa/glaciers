@@ -2,10 +2,6 @@
 from ._glaciers_python import get_config
 from ._glaciers_python import set_config
 from ._glaciers_python import set_config_toml
-from ._glaciers_python import update_abi_df
-from ._glaciers_python import read_new_abi_folder
-from ._glaciers_python import read_new_abi_file
-from ._glaciers_python import read_new_abi_json
 from ._decode_log_folder import async_decode_log_folder
 from ._decode_log_folder import decode_log_folder
 from ._decode_log_file import async_decode_log_file
@@ -14,7 +10,24 @@ from ._decode_log_df import async_decode_log_df
 from ._decode_log_df import decode_log_df
 from ._decode_log_df_with_abi_df import async_decode_log_df_with_abi_df
 from ._decode_log_df_with_abi_df import decode_log_df_with_abi_df
-from ._glaciers_python import polars_decode_logs
+from ._polars_decode_logs import polars_decode_logs
+from ._dataframe_utils import to_prefered_type, DataFrameType
+
+def update_abi_df(path: str, folder: str) -> DataFrameType:
+    df = _glaciers_python.update_abi_df(path, folder)
+    return to_prefered_type(df)
+
+def read_new_abi_folder(folder: str) -> DataFrameType:
+    df = _glaciers_python.read_new_abi_folder(folder)
+    return to_prefered_type(df)
+
+def read_new_abi_file(file: str) -> DataFrameType:
+    df = _glaciers_python.read_new_abi_file(file)
+    return to_prefered_type(df)
+
+def read_new_abi_json(file: str, address: str) -> DataFrameType:
+    df = _glaciers_python.read_new_abi_json(file, address)
+    return to_prefered_type(df)
 
 __all__ = [
     'update_abi_df',
