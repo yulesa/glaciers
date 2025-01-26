@@ -221,19 +221,19 @@ print(f"\nDecoded Logs using ABI DataFrame:\n{decoded_df.head()}\n\n")
 #     - event_keys: The parameter names
 #     - event_json: JSON representation of the decoded event
 # Transfer event
-TRANSFER_EVENT = "Transfer(address indexed from, address indexed to, uint256 value)"
+TRANSFER_EVENT = "event Transfer(address indexed from, address indexed to, uint256 value)"
 TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
 # Create ABI DataFrame
 abi_df = pl.DataFrame(
     {
         "topic0": TRANSFER_TOPIC,
         "full_signature": TRANSFER_EVENT,
+        "name": "Transfer",
     }
 )
 # Decode the events
 decoded_df = gl.polars_decode_logs(logs_df, abi_df)
 print(f"\nDecoded Logs DataFrame:\n{decoded_df.head(5)}\n\n")
-
 
 
 ######## Test unnest_event ########

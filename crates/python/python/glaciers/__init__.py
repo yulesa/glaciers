@@ -13,7 +13,7 @@ from ._decode_log_df_with_abi_df import decode_log_df_with_abi_df
 from ._polars_decode_logs import polars_decode_logs
 from ._decode_log_df_using_single_contract import decode_log_df_using_single_contract
 from ._dataframe_utils import to_prefered_type, DataFrameType
-from .unnest import unnest_event
+from ._unnest import unnest_event
 
 def update_abi_df(path: str, folder: str) -> DataFrameType:
     df = _glaciers_python.update_abi_df(path, folder)
@@ -27,8 +27,8 @@ def read_new_abi_file(file: str) -> DataFrameType:
     df = _glaciers_python.read_new_abi_file(file)
     return to_prefered_type(df)
 
-def read_new_abi_json(file: str) -> DataFrameType:
-    df = _glaciers_python.read_new_abi_json(file)
+def read_new_abi_json(file: str, address: str) -> DataFrameType:
+    df = _glaciers_python.read_new_abi_json(file, address)
     return to_prefered_type(df)
 
 __all__ = [
