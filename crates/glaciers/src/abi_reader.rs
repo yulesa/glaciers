@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::{str::FromStr, path::Path};
 use std::fs;
 use alloy::{json_abi::JsonAbi, primitives::{Address, FixedBytes}};
@@ -14,8 +15,8 @@ pub enum AbiReaderError {
     PolarsError(#[from] polars::prelude::PolarsError),
     #[error("Invalid ABI file: {0}")]
     InvalidAbiFile(String),
-    #[error("Invalid folder path: {0}")]
-    InvalidFolder(String),
+    #[error("Invalid path: {0}")]
+    InvalidPath(String),
     #[error("Invalid ABI DF path: {0}")]
     InvalidAbiDf(String),
     #[error("Invalid configs: {0}")]
@@ -61,7 +62,7 @@ pub fn update_abi_df(abi_df_path: String, abi_folder_path: String) -> Result<Dat
             Series::new_empty("full_signature", &DataType::String),
             Series::new_empty("name", &DataType::String),
             Series::new_empty("anonymous", &DataType::Boolean),
-            Series::new_empty("num_indexed_args", &DataType::UInt8),
+            Series::new_empty("num_indexed_args", &DataType::Int8),
             Series::new_empty("state_mutability", &DataType::String),
             Series::new_empty("id", &DataType::String),
         ])?
@@ -73,7 +74,6 @@ pub fn update_abi_df(abi_df_path: String, abi_folder_path: String) -> Result<Dat
         ["id"],
         ["id"],
         JoinArgs::new(JoinType::Anti))?;
-    //if diff_df is not empty, print all diff_df rows id's column
     if diff_df.height() == 0 {
         println!(
             "[{}] No new event signatures found in the scanned files.",
@@ -85,7 +85,6 @@ pub fn update_abi_df(abi_df_path: String, abi_folder_path: String) -> Result<Dat
             Local::now().format("%Y-%m-%d %H:%M:%S"),
             diff_df
         );
-        // diff_df.column("id")?.as_series().iter().for_each(|s| println!("{}", s));
     }
     let mut combined_df = if existing_df.height() > 0 {
         concat_dataframes(vec![existing_df.lazy(), diff_df.lazy()])?
@@ -99,44 +98,55 @@ pub fn update_abi_df(abi_df_path: String, abi_folder_path: String) -> Result<Dat
 }
 
 pub fn read_new_abi_folder(abi_folder_path: &str) -> Result<DataFrame, AbiReaderError> {
-    let paths = fs::read_dir(abi_folder_path)
-        .map_err(|e| AbiReaderError::InvalidFolder(e.to_string()))?;
-    
-    // Process each file and collect successful results
-    let processed_frames: Vec<DataFrame> = paths
-        .filter_map(|entry| {
-            let path = entry.ok()?.path();
-            match read_new_abi_file(path) {
-                Ok(df) => Some(df),
-                Err(_) => None,  // Silently skip invalid files
-            }
-        })
-        .collect();
-    
-    // Handle case where no valid files were processed
-    if processed_frames.is_empty() {
-        return Ok(DataFrame::new(vec![
-            Series::new_empty("address", &DataType::Binary),
-            Series::new_empty("hash", &DataType::Binary),
-            Series::new_empty("full_signature", &DataType::String),
-            Series::new_empty("name", &DataType::String),
-            Series::new_empty("anonymous", &DataType::Boolean),
-            Series::new_empty("state_mutability", &DataType::String),
-            Series::new_empty("id", &DataType::String),
-        ])?);
+    let abi_folder_path  = Path::new(abi_folder_path);
+    if !abi_folder_path.exists() {
+        return Err(AbiReaderError::InvalidPath(format!("Path does not exist: {}", abi_folder_path.display())));
     }
-    
-    // Combine all DataFrames
-    let mut combined_df = processed_frames[0].clone();
-    for df in processed_frames.into_iter().skip(1) {
-        // concatenate each file dataframe
-        combined_df = combined_df.vstack(&df).map_err(AbiReaderError::PolarsError)?;
-    }
+
+    let combined_df = if abi_folder_path.is_dir() {
+        let paths = fs::read_dir(abi_folder_path)
+            .map_err(|e| AbiReaderError::InvalidPath(e.to_string()))?;
+        
+        // Process each file and collect successful results
+        let processed_frames: Vec<DataFrame> = paths
+            .filter_map(|entry| {
+                let path = entry.ok()?.path();
+                match read_new_abi_file(path) {
+                    Ok(df) => Some(df),
+                    Err(_) => None,  // Silently skip invalid files
+                }
+            })
+            .collect();
+        
+        // Handle case where no valid files were processed
+        if processed_frames.is_empty() {
+            return Ok(DataFrame::new(vec![
+                Series::new_empty("address", &DataType::Binary),
+                Series::new_empty("hash", &DataType::Binary),
+                Series::new_empty("full_signature", &DataType::String),
+                Series::new_empty("name", &DataType::String),
+                Series::new_empty("anonymous", &DataType::Boolean),
+                Series::new_empty("state_mutability", &DataType::String),
+                Series::new_empty("id", &DataType::String),
+            ])?);
+        }
+        
+        // Combine all DataFrames
+        let mut combined_df = processed_frames[0].clone();
+        for df in processed_frames.into_iter().skip(1) {
+            // concatenate each file dataframe
+            combined_df = combined_df.vstack(&df).map_err(AbiReaderError::PolarsError)?;
+        }
+        combined_df
+    } else {
+        read_new_abi_file(abi_folder_path.to_path_buf())?
+    };
+
     
     Ok(combined_df)
 }
 
-pub fn read_new_abi_file(path: std::path::PathBuf) -> Result<DataFrame, AbiReaderError> {
+pub fn read_new_abi_file(path: PathBuf) -> Result<DataFrame, AbiReaderError> {
     let address = extract_address_from_path(&path);
     if let Some(address) = address {
         println!(
