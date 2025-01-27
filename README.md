@@ -21,6 +21,11 @@ To discuss Glaciers, contact us at [t.me/yuleandrade](http://t.me/yuleandrade)
 If you want to use glaciers as a CLI, you can install it using cargo:
 
 ```bash
+# Clone the repository:
+git clone https://github.com/yulesa/glaciers
+# Navigate to the project CLI folder
+cd glaciers
+# Install the CLI
 cargo install --path ./crates/cli
 ```
 To uninstall, run:
