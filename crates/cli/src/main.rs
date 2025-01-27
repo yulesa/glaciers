@@ -18,11 +18,11 @@ enum AppError {
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    /// Set configuration from a TOML file
+    /// Set configs using a TOML file
     #[arg(short, long, value_names = ["PATH"])]
     toml: Option<String>,
 
-    /// Set configuration values (ie format: -c glacier.prefered_dataframe_type polars)
+    /// Set config values (ie: -c glacier.prefered_dataframe_type polars). It accepts multiple configs and will always override toml configs.
     #[arg(short, long = "config", value_names = ["KEY", "VALUE"], num_args = 2, action = clap::ArgAction::Append)]
     config: Vec<String>,
 
@@ -59,12 +59,12 @@ async fn main() {
 
 async fn async_main() -> Result<(), AppError> {
     let cli = Cli::parse();
-    
+
     // Handle set_config_toml if present
     if let Some(toml) = cli.toml {
         configger::set_config_toml(&toml)?;
     }
-    
+
     // Handle multiple config args
     for chunk in cli.config.chunks(2) {
         if chunk.len() == 2 {
