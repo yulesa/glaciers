@@ -1,5 +1,5 @@
 ## Rust Installation
-Currently, Glaciers requires manual compilation and execution. Methods requires having rust installed. See [rustup](https://rustup.rs/) for instructions. To get started:
+For manual compilation and execution. Method requires having rust installed. See [rustup](https://rustup.rs/) for instructions. To get started:
 
 1. Clone the repository:
 ```bash
@@ -10,7 +10,7 @@ cd glaciers
 2. Compile and run the project:
 
 ```bash
-cargo run
+cargo run -- -h
 ```
 
 
@@ -27,17 +27,13 @@ git clone https://github.com/yulesa/glaciers
 # Navigate to the project python module folder
 cd glaciers/crates/python
 ```
-2. Install dependencies in .venv
-```bash
-uv sync
-```
-3.  Build the glaciers python module and install the package
+2.  Build the glaciers python module and install the package
 
 ```bash
 uv run maturin develop --uv
 
 ```
-4.  Run the end-to-end example
+3.  Run the end-to-end example
 
 ```bash
 uv run python e2e_example.py
