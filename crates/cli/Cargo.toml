@@ -18,7 +18,6 @@ serde_json = { workspace = true }
 serde = { workspace = true }
 polars = { workspace = true }
 clap = { workspace = true }
-toml = { workspace = true }
 thiserror = { workspace = true }
 chrono = { workspace = true }
 sysinfo = { workspace = true }

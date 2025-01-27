@@ -2,7 +2,6 @@ use clap::{Parser, Subcommand};
 use glaciers::{abi_reader, configger, decoder};
 use std::path::PathBuf;
 use thiserror::Error;
-use toml;
 
 #[derive(Error, Debug)]
 enum AppError {
@@ -19,6 +18,14 @@ enum AppError {
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
+    /// Set configuration from a TOML file
+    #[arg(short, long, value_names = ["PATH"])]
+    toml: Option<String>,
+
+    /// Set configuration values (ie format: -c glacier.prefered_dataframe_type polars)
+    #[arg(short, long = "config", value_names = ["KEY", "VALUE"], num_args = 2, action = clap::ArgAction::Append)]
+    config: Vec<String>,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -40,23 +47,6 @@ enum Commands {
         /// Path to ABI database file
         abi_df_path: String,
     },
-    
-    /// Manage configuration
-    SetConfig {
-        /// config key
-        key: String,
-        /// Value to set (if a list don't use spaces)
-        value: String,
-    },
-
-    /// Set configuration from a TOML file
-    SetConfigToml {
-        /// Path to TOML config file
-        path: String,
-    },
-
-    /// Display current configuration
-    DisplayConfig,
 }
 
 #[tokio::main]
@@ -69,6 +59,21 @@ async fn main() {
 
 async fn async_main() -> Result<(), AppError> {
     let cli = Cli::parse();
+    
+    // Handle set_config_toml if present
+    if let Some(toml) = cli.toml {
+        configger::set_config_toml(&toml)?;
+    }
+    
+    // Handle multiple config args
+    for chunk in cli.config.chunks(2) {
+        if chunk.len() == 2 {
+            let key = &chunk[0];
+            let value = &chunk[1];
+            let parsed_value = parse_config_value(value);
+            configger::set_config(key, parsed_value)?;
+        }
+    }
 
     match cli.command {
         Commands::Abi { abi_df_path, abi_path } => {
@@ -85,20 +90,7 @@ async fn async_main() -> Result<(), AppError> {
             } else {
                 decoder::decode_log_file(log_path, abi_df_path).await?;
             }
-        },
-        
-        Commands::SetConfig { key, value } => {
-            let value = parse_config_value(&value);
-            configger::set_config(&key, value)?;
-        },
-
-        Commands::SetConfigToml { path } => {
-            configger::set_config_toml(&path)?;
-        },
-
-        Commands::DisplayConfig => {
-            println!("Current configuration:\n{}", toml::to_string(&configger::get_config()).unwrap());
-        },
+        }
     }
 
     Ok(())
