@@ -110,7 +110,7 @@ Some initial ABIs, an abi_df database (only events), and a raw log file are prov
 glaciers abi ABIs/ethereum__abis.parquet ABIs/abi_database
 glaciers decode data/logs ABIs/ethereum__abis.parquet
 ```
-4. Optionally, run the python e2e_example file.
+4. Instead, if you want install glaciers as a Python package, run the python e2e_example file.
 
 ## Schemas
 
