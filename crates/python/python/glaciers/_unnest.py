@@ -13,27 +13,30 @@ def unnest_event(
 
     decoded_log_df = to_polars(decoded_log_df)
     
-    col_types = decoded_log_df.select([pl.col("address"), pl.col("topic0")]).dtypes
-
     filtered_df = decoded_log_df
     if event_name is not None:
         filtered_df = filtered_df.filter(pl.col("name").str.to_lowercase() == event_name.lower())
     if full_signature is not None:
         filtered_df = filtered_df.filter(pl.col("full_signature").str.to_lowercase() == full_signature.lower())
     if event_address is not None:
+        address_col = toml.loads(get_config())["decoder"]["schema"]["alias"]["address"]
+        col_types = filtered_df.select([pl.col(address_col)]).dtypes
         if col_types[0] == pl.String:
-            filtered_df = filtered_df.filter(pl.col("address").str.to_lowercase() == event_address.lower().replace("0x", ""))
+            print(filtered_df.select(pl.col(address_col).str.to_lowercase().replace("0x", "")).head(2))
+            filtered_df = filtered_df.filter(pl.col(address_col).str.to_lowercase().str.replace("0x", "") == event_address.lower().replace("0x", ""))
         elif col_types[0] == pl.Binary:
-            filtered_df = filtered_df.filter(pl.col("address").bin.encode("hex").str.to_lowercase() == event_address.lower().replace("0x", ""))
+            filtered_df = filtered_df.filter(pl.col(address_col).bin.encode("hex").str.to_lowercase().str.replace("0x", "") == event_address.lower().replace("0x", ""))
         else:
             raise ValueError(f"Invalid column type for address: {col_types[0]}")
     if topic0 is not None:
-        if col_types[1] == pl.String:
-            filtered_df = filtered_df.filter(pl.col("topic0").str.to_lowercase() == topic0.lower().replace("0x", ""))
-        elif col_types[1] == pl.Binary:
-            filtered_df = filtered_df.filter(pl.col("topic0").bin.encode("hex").str.to_lowercase() == topic0.lower().replace("0x", ""))
+        topic0_col = toml.loads(get_config())["decoder"]["schema"]["alias"]["topic0"]
+        col_types = filtered_df.select([pl.col(topic0_col)]).dtypes
+        if col_types[0] == pl.String:
+            filtered_df = filtered_df.filter(pl.col(topic0_col).str.to_lowercase().str.replace("0x", "") == topic0.lower().replace("0x", ""))
+        elif col_types[0] == pl.Binary:
+            filtered_df = filtered_df.filter(pl.col(topic0_col).bin.encode("hex").str.to_lowercase().str.replace("0x", "") == topic0.lower().replace("0x", ""))
         else:
-            raise ValueError(f"Invalid column type for topic0: {col_types[1]}")
+            raise ValueError(f"Invalid column type for topic0: {col_types[0]}")
     
     unique_event = filtered_df.select(pl.col("full_signature")).unique()
     if unique_event.height > 1:
