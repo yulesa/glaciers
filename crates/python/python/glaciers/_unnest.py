@@ -22,7 +22,6 @@ def unnest_event(
         address_col = toml.loads(get_config())["decoder"]["schema"]["alias"]["address"]
         col_types = filtered_df.select([pl.col(address_col)]).dtypes
         if col_types[0] == pl.String:
-            print(filtered_df.select(pl.col(address_col).str.to_lowercase().replace("0x", "")).head(2))
             filtered_df = filtered_df.filter(pl.col(address_col).str.to_lowercase().str.replace("0x", "") == event_address.lower().replace("0x", ""))
         elif col_types[0] == pl.Binary:
             filtered_df = filtered_df.filter(pl.col(address_col).bin.encode("hex").str.to_lowercase().str.replace("0x", "") == event_address.lower().replace("0x", ""))

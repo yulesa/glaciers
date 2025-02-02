@@ -60,6 +60,10 @@ pub async fn decode_log_folder(
 
     // Spawn a task for each log file
     for log_file_path in log_files {
+        // skip PathBuf belonging to folders
+        if log_file_path.is_dir() {
+            continue
+        }
         // Clone the DataFrame and semafore for each task
         let abi_df_path = abi_df_path.clone();
         let semaphore = semaphore.clone();

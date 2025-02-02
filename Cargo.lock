@@ -1573,7 +1573,7 @@ checksum = "32085ea23f3234fc7846555e85283ba4de91e21016dc0455a16286d87a292d64"
 
 [[package]]
 name = "glaciers"
-version = "1.0.7"
+version = "1.0.8"
 dependencies = [
  "alloy",
  "chrono",
@@ -1590,7 +1590,7 @@ dependencies = [
 
 [[package]]
 name = "glaciers_cli"
-version = "1.0.7"
+version = "1.0.8"
 dependencies = [
  "alloy",
  "chrono",
@@ -1606,7 +1606,7 @@ dependencies = [
 
 [[package]]
 name = "glaciers_python"
-version = "1.0.7"
+version = "1.0.8"
 dependencies = [
  "alloy",
  "glaciers",

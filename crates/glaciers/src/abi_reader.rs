@@ -111,6 +111,9 @@ pub fn read_new_abi_folder(abi_folder_path: &str) -> Result<DataFrame, AbiReader
         let processed_frames: Vec<DataFrame> = paths
             .filter_map(|entry| {
                 let path = entry.ok()?.path();
+                if path.is_dir() {
+                    return None;
+                }
                 match read_new_abi_file(path) {
                     Ok(df) => Some(df),
                     Err(_) => None,  // Silently skip invalid files
