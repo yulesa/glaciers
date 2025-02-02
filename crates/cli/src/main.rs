@@ -34,18 +34,18 @@ struct Cli {
 enum Commands {
     /// Read ABI file or folder, or update an existing ABI database
     Abi {
-        /// Path to ABI database file (or the path to create a new file)
-        abi_df_path: String,
-        /// Path to ABI file or folder
-        abi_path: String
+        /// Path to ABI database file (or the path to create a new file). Optional, default: config file
+        abi_df_path: Option<String>,
+        /// Path to ABI file or folder. Optional, default: config file
+        abi_path: Option<String>
     },
     
     /// Decode Ethereum logs
     Decode {
-        /// Path to log file or folder to decode
-        log_path: PathBuf,
-        /// Path to ABI database file
-        abi_df_path: String,
+        /// Path to log file or folder to decode. Optional, default: config file
+        log_path: Option<String>,
+        /// Path to ABI database file. Optional, default: config file
+        abi_df_path: Option<String>
     },
 }
 
@@ -77,10 +77,18 @@ async fn async_main() -> Result<(), AppError> {
 
     match cli.command {
         Commands::Abi { abi_df_path, abi_path } => {
+            let abi_df_path = abi_df_path.unwrap_or_else(|| configger::get_config().main.abi_df_file_path);
+            let abi_path = abi_path.unwrap_or_else(|| configger::get_config().main.abi_folder_path);
+
             abi_reader::update_abi_df(abi_df_path, abi_path)?;
         },
         
         Commands::Decode { log_path, abi_df_path } => {
+            let log_path = log_path.unwrap_or_else(|| configger::get_config().main.raw_logs_folder_path);
+            let abi_df_path = abi_df_path.unwrap_or_else(|| configger::get_config().main.abi_df_file_path);
+
+            let log_path = PathBuf::from(log_path);
+
             if !log_path.exists() {
                 return Err(AppError::InvalidInput(format!("Path does not exist: {}", log_path.display())));
             }
