@@ -1,6 +1,6 @@
 [package]
 name = "glaciers_cli"
-description = "Glaciers Cli is a rust tool to decode raw EVM logs into decoded events."
+description = "Glaciers Cli is a rust tool to decode raw EVM logs/traces into decoded events."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,7 +8,7 @@ homepage.workspace = true
 repository.workspace = true
 
 [[bin]]
-name = "glaciers_cli"
+name = "glaciers"
 path = "src/main.rs"
 
 [dependencies]
@@ -17,6 +17,7 @@ alloy = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
 polars = { workspace = true }
+clap = { workspace = true }
 thiserror = { workspace = true }
 chrono = { workspace = true }
 sysinfo = { workspace = true }

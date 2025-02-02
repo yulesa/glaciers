@@ -75,13 +75,13 @@ pub fn abi_df_hex_string_columns_to_binary(mut abi_df: DataFrame) -> Result<Data
 pub fn read_df_file(path: &Path) -> Result<DataFrame, PolarsError> {
     let path_ext = path.extension();
     if path_ext == Some(OsStr::new("parquet")) {
-        ParquetReader::new(File::open(path)?)
+        ParquetReader::new(File::open(path).map_err(|e| PolarsError::ComputeError(ErrString::from(format!("Error opening path {}: {}" , path.display(), e.to_string()))))?)
             .finish()
     } else if path_ext == Some(OsStr::new("csv")) {
-        CsvReader::new(File::open(path)?)
+        CsvReader::new(File::open(path).map_err(|e| PolarsError::ComputeError(ErrString::from(format!("Error opening path {}: {}" , path.display(), e.to_string()))))?)
             .finish()
     } else {
-        Err(PolarsError::ComputeError(ErrString::from("Invalid file extension")))
+        Err(PolarsError::ComputeError(ErrString::from(format!("In the path {}, a file extension was not provided (csv or parquet)", path.display()))))
     }
 }
 
@@ -91,7 +91,7 @@ pub fn write_df_file(df: &mut DataFrame, path: &Path) -> Result<(), PolarsError>
     match path.extension().and_then(|ext| ext.to_str()) {
         Some("parquet") => ParquetWriter::new(&mut file).finish(df).map(|_| ()),
         Some("csv") => CsvWriter::new(&mut file).finish(df),
-        _ => Err(PolarsError::ComputeError(ErrString::from("Invalid file extension")))
+        _ => Err(PolarsError::ComputeError(ErrString::from(format!("In the path {}, a file extension was not provided (csv or parquet)", path.display()))))
     }?;
     Ok(())
 }

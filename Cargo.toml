@@ -6,7 +6,7 @@ members = ["crates/cli", "crates/glaciers", "crates/python"]
 resolver = "2"
 
 [workspace.package]
-version = "1.0.6"
+version = "1.0.7"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/yulesa/glaciers"
@@ -15,9 +15,9 @@ description = "Glaciers is a rust and python tool to decode raw EVM logs into de
 exclude = [".github/"]
 
 [workspace.dependencies]
-glaciers = { version = "1.0.6", path = "./crates/glaciers" }
-glaciers_cli = { version = "1.0.6", path = "./crates/cli" }
-glaciers_python = { version = "1.0.6", path = "./crates/python" }
+glaciers = { version = "1.0.7", path = "./crates/glaciers" }
+glaciers_cli = { version = "1.0.7", path = "./crates/cli" }
+glaciers_python = { version = "1.0.7", path = "./crates/python" }
 alloy = { version = "0.2.0", features = ["json-abi", "dyn-abi"] }
 serde_json = "1.0.128"
 serde = { version = "1.0.215", features = ["derive"] }
@@ -25,6 +25,7 @@ reqwest = { version = "0.12.12", features = ["json"] }
 toml = "0.8.19"
 polars = { version = "0.38.3", features = ["lazy", "parquet", "dtype-struct", "strings", "semi_anti_join", "binary_encoding", "concat_str"]}
 thiserror = "1.0.50"
+clap = { version = "4.5.27", features = ["derive"] }
 chrono = "0.4.38"
 sysinfo = "0.33.0"
 tokio = { version = "1.42.0", features = ["full"] }

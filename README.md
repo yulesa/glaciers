@@ -18,6 +18,21 @@ To discuss Glaciers, contact us at [t.me/yuleandrade](http://t.me/yuleandrade)
 
 ## Quick Start
 ### Rust Installation
+If you want to use glaciers as a CLI, you can install it using cargo:
+
+```bash
+# Clone the repository:
+git clone https://github.com/yulesa/glaciers
+# Navigate to the project CLI folder
+cd glaciers
+# Install the CLI
+cargo install --path ./crates/cli
+```
+To uninstall, run:
+```bash
+cargo uninstall glaciers_cli
+```
+
 Library Mode
 ```toml
 # Cargo.toml
@@ -29,8 +44,8 @@ use glaciers::decoder;
 use glaciers::abi_reader;
 
 async fn main() -> {
-    abi_reader::read_abis_topic0(TOPIC0_FILE_PATH, ABIS_FOLDER_PATH);
-    decoder::process_log_files(RAW_LOGS_FOLDER_PATH, TOPIC0_FILE_PATH).await;
+    abi_reader::update_abi_df(abi_df_path, abi_path)?;
+    decoder::decode_log_folder(log_folder_path, abi_df_path).await?;
 }
 ```
 ### Python Installation
@@ -38,12 +53,12 @@ async fn main() -> {
 Glaciers can also be installed as a Python package:
 
 ```bash
-# Clone the repository for example files:
+# Install Glaciers using pip
+pip install glaciers
+# Clone the repository if you want to use the example files and the provided ABI database:
 git clone https://github.com/yulesa/glaciers
 # Navigate to the project python module folder
 cd glaciers/crates/python
-# Install Glaciers using pip
-pip install glaciers
 # Run the end-to-end example
 python e2e_example.py
 ```
@@ -89,8 +104,13 @@ Glaciers divide the decoding process into two key steps:
 Some initial ABIs, an abi_df database (only events), and a raw log file are provided as examples.
 
 1. Add new ABIs to the abi_database folder. New ABIs need to be json files and have the file name as a valid contract address.
-2. Add raw logs files to the logs folder. Files name needs to have 'logs'.
-3. Compile and Run using rust, or run the python e2e_example file.
+2. Add raw logs files to the logs folder.
+3. Run glaciers as a CLI:
+```bash
+glaciers abi ABIs/ethereum__abis.parquet ABIs/abi_database
+glaciers decode data/logs ABIs/ethereum__abis.parquet
+```
+4. Instead, if you want install glaciers as a Python package, run the python e2e_example file.
 
 ## Schemas
 
