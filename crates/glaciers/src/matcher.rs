@@ -12,19 +12,11 @@ pub fn match_logs_by_topic0_address(log_df: DataFrame, abi_df: DataFrame) -> Res
     let topic0_alias = get_config().decoder.schema.alias.topic0;
     let address_alias = get_config().decoder.schema.alias.address;
 
-    let abi_df = abi_df.lazy().select([
-        col("num_indexed_args"),
-        col("hash"),
-        col("address"),
-        col("full_signature"),
-        col("name"),
-        col("anonymous"),
-    ]);
 
     let logs_left_join_abi_df = log_df
         .lazy()
         .join(
-            abi_df,
+            abi_df.lazy(),
             [col(topic0_alias.as_str()), col(address_alias.as_str())],
             [col("hash"), col("address")],
             JoinArgs::new(JoinType::Left),
@@ -44,13 +36,6 @@ pub fn match_logs_by_topic0(log_df: DataFrame, abi_df: DataFrame) -> Result<Data
     // create an abi_df with the most frequent signature for each hash
     let abi_df = abi_df
         .lazy()
-        //select only log columns
-        .select([
-            col("hash"),
-            col("full_signature"),
-            col("name"),
-            col("anonymous"),
-            col("num_indexed_args")])
         //count the number of rows for each full_signature
         .group_by(["hash", "full_signature", "name", "anonymous", "num_indexed_args"])
         .agg([len().alias("signature_count")])
