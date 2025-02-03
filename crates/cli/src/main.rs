@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use glaciers::{abi_reader, configger, decoder};
+use glaciers::{abi_reader, configger, log_decoder};
 use std::path::PathBuf;
 use thiserror::Error;
 
@@ -10,7 +10,7 @@ enum AppError {
     #[error("ABI Reader error: {0}")]
     AbiError(#[from] abi_reader::AbiReaderError),
     #[error("Decoder error: {0}")]
-    DecodeError(#[from] decoder::DecoderError),
+    DecodeError(#[from] log_decoder::DecoderError),
     #[error("Invalid input: {0}")]
     InvalidInput(String),
 }
@@ -94,9 +94,9 @@ async fn async_main() -> Result<(), AppError> {
             }
 
             if log_path.is_dir() {
-                decoder::decode_log_folder(log_path.to_string_lossy().into_owned(), abi_df_path).await?;
+                log_decoder::decode_log_folder(log_path.to_string_lossy().into_owned(), abi_df_path).await?;
             } else {
-                decoder::decode_log_file(log_path, abi_df_path).await?;
+                log_decoder::decode_log_file(log_path, abi_df_path).await?;
             }
         }
     }
