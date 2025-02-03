@@ -18,6 +18,8 @@ abi_df_file_path = "ABIs/ethereum__abis.parquet"
 abi_folder_path = "ABIs/abi_database"
 # Directory where raw blockchain logs are stored
 raw_logs_folder_path = "data/logs"
+# Directory where raw blockchain traces are stored
+raw_traces_folder_path = "data/traces"
 
 # Configuration for the ABI reader component
 [abi_reader]

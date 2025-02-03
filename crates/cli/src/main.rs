@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use glaciers::{abi_reader, configger, log_decoder};
+use glaciers::{abi_reader, configger, log_decoder, trace_decoder};
 use std::path::PathBuf;
 use thiserror::Error;
 
@@ -11,6 +11,8 @@ enum AppError {
     AbiError(#[from] abi_reader::AbiReaderError),
     #[error("Log decoder error: {0}")]
     LogDecoderError(#[from] log_decoder::LogDecoderError),
+    #[error("Trace decoder error: {0}")]
+    TraceDecoderError(#[from] trace_decoder::TraceDecoderError),
     #[error("Invalid input: {0}")]
     InvalidInput(String),
 }
@@ -44,6 +46,14 @@ enum Commands {
     DecodeLogs {
         /// Path to log file or folder to decode. Optional, default: config file
         log_path: Option<String>,
+        /// Path to ABI database file. Optional, default: config file
+        abi_df_path: Option<String>
+    },
+
+    /// Decode Ethereum traces
+    DecodeTraces {
+        /// Path to trace file or folder to decode. Optional, default: config file
+        trace_path: Option<String>,
         /// Path to ABI database file. Optional, default: config file
         abi_df_path: Option<String>
     },
@@ -98,6 +108,25 @@ async fn async_main() -> Result<(), AppError> {
             } else {
                 log_decoder::decode_log_file(log_path, abi_df_path).await?;
             }
+        }
+
+        Commands::DecodeTraces { trace_path, abi_df_path } => {
+            let trace_path = trace_path.unwrap_or_else(|| configger::get_config().main.raw_traces_folder_path);
+            println!("trace_path: {:?}", trace_path);
+            let abi_df_path = abi_df_path.unwrap_or_else(|| configger::get_config().main.abi_df_file_path);
+            
+            let trace_path = PathBuf::from(trace_path);
+
+            if !trace_path.exists() {
+                return Err(AppError::InvalidInput(format!("Path does not exist: {}", trace_path.display())));
+            }
+
+            // if trace_path.is_dir() {
+            //     trace_decoder::decode_trace_folder(trace_path.to_string_lossy().into_owned(), abi_df_path).await?;
+            // } else {
+            //     trace_decoder::decode_trace_file(trace_path, abi_df_path).await?;
+            // }
+            trace_decoder::decode_trace_file(trace_path.to_string_lossy().into_owned(), abi_df_path).await?;
         }
     }
 
