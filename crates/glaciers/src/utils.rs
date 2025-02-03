@@ -34,8 +34,8 @@ pub fn binary_columns_to_hex_string(df: DataFrame) -> Result<DataFrame, PolarsEr
 }
 
 pub fn hex_string_columns_to_binary(df: DataFrame) -> Result<DataFrame, PolarsError> {
-    let input_schema_datatype = get_config().decoder.schema.datatype;
-    let input_schema_alias = get_config().decoder.schema.alias;
+    let input_schema_datatype = get_config().log_decoder.schema.datatype;
+    let input_schema_alias = get_config().log_decoder.schema.alias;
 
     let bin_exprs: Vec<Expr> = input_schema_datatype.as_array()
         .iter()

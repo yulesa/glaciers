@@ -9,8 +9,8 @@ enum AppError {
     ConfigError(#[from] configger::ConfiggerError),
     #[error("ABI Reader error: {0}")]
     AbiError(#[from] abi_reader::AbiReaderError),
-    #[error("Decoder error: {0}")]
-    DecodeError(#[from] log_decoder::DecoderError),
+    #[error("Log decoder error: {0}")]
+    LogDecoderError(#[from] log_decoder::LogDecoderError),
     #[error("Invalid input: {0}")]
     InvalidInput(String),
 }
@@ -41,7 +41,7 @@ enum Commands {
     },
     
     /// Decode Ethereum logs
-    Decode {
+    DecodeLogs {
         /// Path to log file or folder to decode. Optional, default: config file
         log_path: Option<String>,
         /// Path to ABI database file. Optional, default: config file
@@ -83,7 +83,7 @@ async fn async_main() -> Result<(), AppError> {
             abi_reader::update_abi_df(abi_df_path, abi_path)?;
         },
         
-        Commands::Decode { log_path, abi_df_path } => {
+        Commands::DecodeLogs { log_path, abi_df_path } => {
             let log_path = log_path.unwrap_or_else(|| configger::get_config().main.raw_logs_folder_path);
             let abi_df_path = abi_df_path.unwrap_or_else(|| configger::get_config().main.abi_df_file_path);
 
