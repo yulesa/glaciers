@@ -4,7 +4,7 @@ Our goal is to develop Glaciers into a robust and efficient solution for decodin
 
 ## Features
 
-- [ ] Create a CLI for Glaciers.
+- [x] Create a CLI for Glaciers.
 - [x] Create a config file and allow users to modify Glaciers' execution parameters.
 - [x] Add support for additional input/output source types beyond Parquet, such as CSV.
 - [x] Add support for Pandas DataFrames.
@@ -18,6 +18,12 @@ Our goal is to develop Glaciers into a robust and efficient solution for decodin
 - [x] Develop example files to guide new users in using Glaciers.
 
 ## What did you get done this week:
+
+### 2025-01-31
+- Created a simple CLI for Glaciers.
+- Created a larger ABI DB using Sourcify and make it public in a [separate repo](https://github.com/yulesa/sourcify_abis).
+- Wrote a blog post about decoding all Ethereum raw logs with Glaciers, using the larger ABI DB.
+- Debugged and fixed a bug in the unnest function. Fixed a bug when the logs folder has directories.
 
 ### 2025-01-24
 - Added support for Pandas DataFrames.

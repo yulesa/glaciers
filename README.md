@@ -6,7 +6,7 @@ Glaciers is a tool for batch decoding EVM (Ethereum Virtual Machine) raw logs an
 
 You can read a 8 tweet thread with a quick example using Glaciers for analytics [here](https://x.com/yulesa/status/1879574555158831389) or go straight to the [file](./glacier_analytics_example/glacier_analytics_example.ipynb). We highly recommend users read the [Decoding Key Concepts](./docs/decoding_key_concepts.md) documentation to understand how Glaciers works.
 
-If you haven't already indexed your raw logs and traces, we recommend using [Cryo](https://github.com/paradigmxyz/cryo). Although Glaciers is generic, we used Cryo as schema sources.
+To decode raw data you will need an ABI database. This repo comes with a small example, but you can also download a larger one, you can use this [ABI DB from Sourcify](https://github.com/yulesa/sourcify_abis). It contains 366,646 unique ABIs from 4,863,129 contracts across multiple chains. If you haven't already indexed your raw logs and traces, we recommend using [Cryo](https://github.com/paradigmxyz/cryo). Although Glaciers is generic, we used Cryo as schema sources.
 
 To discuss Glaciers, contact us at [t.me/yuleandrade](http://t.me/yuleandrade)
 
@@ -101,9 +101,9 @@ Glaciers divide the decoding process into two key steps:
 
 ### Examples
 
-Some initial ABIs, an abi_df database (only events), and a raw log file are provided as examples.
+A small abi_df database and a raw log file are provided as examples in the repo. If you want to use a larger ABI DB, you can download this [ABI DB from Sourcify](https://github.com/yulesa/sourcify_abis).
 
-1. Add new ABIs to the abi_database folder. New ABIs need to be json files and have the file name as a valid contract address.
+1. Add some new ABIs to the abi_database folder. New ABIs need to be json files and have the file name as a valid contract address.
 2. Add raw logs files to the logs folder.
 3. Run glaciers as a CLI:
 ```bash
