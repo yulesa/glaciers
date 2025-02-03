@@ -22,7 +22,7 @@ pub struct Config {
     pub glaciers: GlaciersConfig,
     pub main: MainConfig,
     pub abi_reader: AbiReaderConfig,
-    pub decoder: DecoderConfig,
+    pub log_decoder: LogDecoderConfig,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -51,7 +51,7 @@ pub struct AbiReaderConfig {
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
-pub struct DecoderConfig {
+pub struct LogDecoderConfig {
     pub logs_algorithm: Algorithm,
     pub schema: SchemaConfig,
     pub output_hex_string_encoding: bool,
@@ -127,7 +127,7 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
             output_hex_string_encoding: false,
             unique_key: vec![String::from("hash"), String::from("full_signature"), String::from("address")],
         },
-        decoder: DecoderConfig {
+        log_decoder: LogDecoderConfig {
             logs_algorithm: Algorithm::Topic0,
             schema: SchemaConfig {
                 alias: AliasConfig {
@@ -241,54 +241,54 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
             _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
         },
         
-        "decoder" => match (field, value) {
+        "log_decoder" => match (field, value) {
             (Some("logs_algorithm"), ConfigValue::String(v)) => {
                 match v.to_lowercase().as_str() {
-                    "topic0_address" => config.decoder.logs_algorithm = Algorithm::Topic0Address,
-                    "topic0" => config.decoder.logs_algorithm = Algorithm::Topic0,
+                    "topic0_address" => config.log_decoder.logs_algorithm = Algorithm::Topic0Address,
+                    "topic0" => config.log_decoder.logs_algorithm = Algorithm::Topic0,
                     _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
                 }
             },
             (Some("schema"), value) => match (subfield, value) {
                 (Some("alias"), ConfigValue::String(v)) => {
                     match schema_field {
-                        Some("topic0") => config.decoder.schema.alias.topic0 = v,
-                        Some("topic1") => config.decoder.schema.alias.topic1 = v,
-                        Some("topic2") => config.decoder.schema.alias.topic2 = v,
-                        Some("topic3") => config.decoder.schema.alias.topic3 = v,
-                        Some("data") => config.decoder.schema.alias.data = v,
-                        Some("address") => config.decoder.schema.alias.address = v,
+                        Some("topic0") => config.log_decoder.schema.alias.topic0 = v,
+                        Some("topic1") => config.log_decoder.schema.alias.topic1 = v,
+                        Some("topic2") => config.log_decoder.schema.alias.topic2 = v,
+                        Some("topic3") => config.log_decoder.schema.alias.topic3 = v,
+                        Some("data") => config.log_decoder.schema.alias.data = v,
+                        Some("address") => config.log_decoder.schema.alias.address = v,
                         _ => return Err(ConfiggerError::InvalidFieldOrValue(schema_field.unwrap_or("").to_string()))
                     }
                 },
                 (Some("datatype"), ConfigValue::String(v)) => {
                     match schema_field {
-                        Some("topic0") => config.decoder.schema.datatype.topic0 = match v.to_lowercase().as_str() {
+                        Some("topic0") => config.log_decoder.schema.datatype.topic0 = match v.to_lowercase().as_str() {
                             "binary" => DataType::Binary,
                             "hexstring" => DataType::HexString,
                             _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
                         },
-                        Some("topic1") => config.decoder.schema.datatype.topic1 = match v.to_lowercase().as_str() {
+                        Some("topic1") => config.log_decoder.schema.datatype.topic1 = match v.to_lowercase().as_str() {
                             "binary" => DataType::Binary,
                             "hexstring" => DataType::HexString,
                             _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
                         },
-                        Some("topic2") => config.decoder.schema.datatype.topic2 = match v.to_lowercase().as_str() {
+                        Some("topic2") => config.log_decoder.schema.datatype.topic2 = match v.to_lowercase().as_str() {
                             "binary" => DataType::Binary,
                             "hexstring" => DataType::HexString,
                             _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
                         },
-                        Some("topic3") => config.decoder.schema.datatype.topic3 = match v.to_lowercase().as_str() {
+                        Some("topic3") => config.log_decoder.schema.datatype.topic3 = match v.to_lowercase().as_str() {
                             "binary" => DataType::Binary,
                             "hexstring" => DataType::HexString,
                             _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
                         },
-                        Some("data") => config.decoder.schema.datatype.data = match v.to_lowercase().as_str() {
+                        Some("data") => config.log_decoder.schema.datatype.data = match v.to_lowercase().as_str() {
                             "binary" => DataType::Binary,
                             "hexstring" => DataType::HexString,
                             _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
                         },
-                        Some("address") => config.decoder.schema.datatype.address = match v.to_lowercase().as_str() {
+                        Some("address") => config.log_decoder.schema.datatype.address = match v.to_lowercase().as_str() {
                             "binary" => DataType::Binary,
                             "hexstring" => DataType::HexString,
                             _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
@@ -298,22 +298,22 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
                 },
                 _ => return Err(ConfiggerError::InvalidFieldOrValue(subfield.unwrap_or("").to_string()))
             },
-            (Some("output_hex_string_encoding"), ConfigValue::Boolean(v)) => config.decoder.output_hex_string_encoding = v,
+            (Some("output_hex_string_encoding"), ConfigValue::Boolean(v)) => config.log_decoder.output_hex_string_encoding = v,
             (Some("output_hex_string_encoding"), ConfigValue::Number(v)) => {
                 match v {
-                    1 => config.decoder.output_hex_string_encoding = true,
-                    0 => config.decoder.output_hex_string_encoding = false,
+                    1 => config.log_decoder.output_hex_string_encoding = true,
+                    0 => config.log_decoder.output_hex_string_encoding = false,
                     _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
                 }
             },
             (Some("output_file_format"), ConfigValue::String(v)) => {
                 let v = v.to_lowercase();
                 validate_output_file_format(&v)?;
-                config.decoder.output_file_format = v;
+                config.log_decoder.output_file_format = v;
             },
-            (Some("max_concurrent_files_decoding"), ConfigValue::Number(v)) => config.decoder.max_concurrent_files_decoding = v,
-            (Some("max_chunk_threads_per_file"), ConfigValue::Number(v)) => config.decoder.max_chunk_threads_per_file = v,
-            (Some("decoded_chunk_size"), ConfigValue::Number(v)) => config.decoder.decoded_chunk_size = v,
+            (Some("max_concurrent_files_decoding"), ConfigValue::Number(v)) => config.log_decoder.max_concurrent_files_decoding = v,
+            (Some("max_chunk_threads_per_file"), ConfigValue::Number(v)) => config.log_decoder.max_chunk_threads_per_file = v,
+            (Some("decoded_chunk_size"), ConfigValue::Number(v)) => config.log_decoder.decoded_chunk_size = v,
             _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
         },
         _ => return Err(ConfiggerError::InvalidFieldOrValue(section.to_string()))

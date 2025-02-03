@@ -17,8 +17,8 @@ pub enum MiscellaneousError {
     InvalidAddress(String),
     #[error("Abi reader error: {0}")]
     AbiReaderError(#[from] abi_reader::AbiReaderError),
-    #[error("Decoder error: {0}")]
-    DecoderError(#[from] log_decoder::DecoderError),
+    #[error("Log decoder error: {0}")]
+    LogDecoderError(#[from] log_decoder::LogDecoderError),
 }
 
 

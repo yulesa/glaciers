@@ -9,8 +9,8 @@ pub enum MatcherError {
 }
 
 pub fn match_logs_by_topic0_address(log_df: DataFrame, abi_df: DataFrame) -> Result<DataFrame, MatcherError> {
-    let topic0_alias = get_config().decoder.schema.alias.topic0;
-    let address_alias = get_config().decoder.schema.alias.address;
+    let topic0_alias = get_config().log_decoder.schema.alias.topic0;
+    let address_alias = get_config().log_decoder.schema.alias.address;
 
 
     let logs_left_join_abi_df = log_df
@@ -54,7 +54,7 @@ pub fn match_logs_by_topic0(log_df: DataFrame, abi_df: DataFrame) -> Result<Data
             all().first()
         ]).drop(["address", "signature_count"]);
 
-    let topic0_alias = get_config().decoder.schema.alias.topic0;
+    let topic0_alias = get_config().log_decoder.schema.alias.topic0;
     // add a column with the number of indexed args
     let logs_2 = logs_address_not_matched
         .with_column((lit(1 as u32) +

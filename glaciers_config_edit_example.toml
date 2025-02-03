@@ -26,8 +26,8 @@ output_hex_string_encoding = false
 # Fields used to uniquely identify each ABI item. Allowed_keys = ["hash", "full_signature", "address"]
 unique_key = ["hash", "full_signature", "address"]
 
-# Settings for the decoder component
-[decoder]
+# Settings for the log decoder component
+[log_decoder]
 # logs_algorithm: algorithm to use for matching logs to ABI signatures, allowed values = 
 #   - "topic0_address": match logs to ABI signatures using both topic0 and address, only contracts with ABI in the abi_df will be matched
 #   - "topic0": match logs to ABI signatures by topic0, for contracts without ABIs in the abi_df, the most frequent signature in the abi_df will be matched
