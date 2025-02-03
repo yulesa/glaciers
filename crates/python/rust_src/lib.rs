@@ -6,7 +6,7 @@ use pyo3::prelude::*;
 use pyo3::exceptions::PyValueError;
 use pyo3_polars::PyDataFrame;
 use polars::prelude::*;
-use glaciers::decoder;
+use glaciers::log_decoder;
 use glaciers::abi_reader;
 use glaciers::configger;
 use glaciers::miscellaneous;
@@ -178,7 +178,7 @@ pub fn read_new_abi_json(abi: String, address: String) -> PyResult<PyDataFrame> 
 #[pyfunction]
 pub fn decode_log_folder(py: Python<'_>, log_folder_path: String, abi_df_path: String) -> PyResult<&PyAny> {
     pyo3_asyncio::tokio::future_into_py(py, async move {
-        decoder::decode_log_folder(log_folder_path, abi_df_path).await
+        log_decoder::decode_log_folder(log_folder_path, abi_df_path).await
         .map_err(|e| PyValueError::new_err(format!("Decoding error: {}", e)))
     })
 }
@@ -201,7 +201,7 @@ pub fn decode_log_folder(py: Python<'_>, log_folder_path: String, abi_df_path: S
 pub fn decode_log_file(py: Python<'_>, log_file_path: String, abi_df_path: String) -> PyResult<&PyAny> {
     let log_file_path = PathBuf::from(log_file_path);
     let result = pyo3_asyncio::tokio::future_into_py(py, async move {
-        match decoder::decode_log_file(log_file_path, abi_df_path).await {
+        match log_decoder::decode_log_file(log_file_path, abi_df_path).await {
             Ok(df) => Ok(PyDataFrame(df)),
             Err(e) => Err(PyValueError::new_err(format!("Decoding error: {}", e))),
         }
@@ -228,7 +228,7 @@ pub fn decode_log_df(py: Python<'_>, logs_df: PyDataFrame, abi_df_path: String) 
     // Convert PyDataFrame to native polars DataFrame
     let logs_df:DataFrame = logs_df.into();
     let result = pyo3_asyncio::tokio::future_into_py(py, async move {
-        match decoder::decode_log_df(logs_df, abi_df_path).await {
+        match log_decoder::decode_log_df(logs_df, abi_df_path).await {
             Ok(df) => Ok(PyDataFrame(df)),
             Err(e) => Err(PyValueError::new_err(format!("Decoding error: {}", e))),
         }
@@ -258,7 +258,7 @@ pub fn decode_log_df_with_abi_df(py: Python<'_>, logs_df: PyDataFrame, abi_df: P
     let logs_df:DataFrame = logs_df.into();
     let abi_df:DataFrame = abi_df.into();
     let result = pyo3_asyncio::tokio::future_into_py(py, async move {
-        match decoder::decode_log_df_with_abi_df(logs_df, abi_df).await {
+        match log_decoder::decode_log_df_with_abi_df(logs_df, abi_df).await {
             Ok(df) => Ok(PyDataFrame(df)),
             Err(e) => Err(PyValueError::new_err(format!("Decoding error: {}", e))),
         }
@@ -308,7 +308,7 @@ pub fn polars_decode_logs(logs_df: PyDataFrame, abi_df: PyDataFrame) -> PyResult
         .map_err(|e| PyValueError::new_err(format!("Join error: {}", e)))?;
 
     // Process the logs using our decoder
-    let result = decoder::polars_decode_logs(logs_with_abi)
+    let result = log_decoder::polars_decode_logs(logs_with_abi)
         .map_err(|e| PyValueError::new_err(format!("Decoding error: {}", e)))?;
 
     Ok(PyDataFrame(result))

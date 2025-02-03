@@ -5,7 +5,7 @@ use polars::prelude::*;
 use thiserror::Error;
 
 use crate::abi_reader;
-use crate::decoder;
+use crate::log_decoder;
 
 #[derive(Error, Debug)]
 pub enum MiscellaneousError {
@@ -18,7 +18,7 @@ pub enum MiscellaneousError {
     #[error("Abi reader error: {0}")]
     AbiReaderError(#[from] abi_reader::AbiReaderError),
     #[error("Decoder error: {0}")]
-    DecoderError(#[from] decoder::DecoderError),
+    DecoderError(#[from] log_decoder::DecoderError),
 }
 
 
@@ -41,7 +41,7 @@ pub async fn decode_log_df_using_single_contract(log_df: DataFrame, contract_add
     let address = Address::from_str(&contract_address).map_err(|e| MiscellaneousError::InvalidAddress(e.to_string()))?;
 
     let abi_df = abi_reader::read_new_abi_json(abi, address)?;
-    let log_df = decoder::decode_log_df_with_abi_df(log_df, abi_df).await?;
+    let log_df = log_decoder::decode_log_df_with_abi_df(log_df, abi_df).await?;
 
     Ok(log_df)
 }
