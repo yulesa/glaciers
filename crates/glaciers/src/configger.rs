@@ -46,6 +46,7 @@ pub struct MainConfig {
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct AbiReaderConfig {
+    pub abi_reader_mode: AbiReaderMode,
     pub unique_key: Vec<String>,
     pub output_hex_string_encoding: bool,
 }
@@ -59,6 +60,13 @@ pub struct DecoderConfig {
     pub max_concurrent_files_decoding: usize,
     pub max_chunk_threads_per_file: usize,
     pub decoded_chunk_size: usize,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
+pub enum AbiReaderMode {
+    Events,
+    Functions,
+    Both
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -111,7 +119,7 @@ pub enum DataType {
     HexString
 }
 
-
+// Initialize the config with default values.
 pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
     RwLock::new(Config {
         glaciers: GlaciersConfig {
@@ -124,6 +132,7 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
             raw_logs_folder_path: String::from("data/logs"),
         },
         abi_reader: AbiReaderConfig {
+            abi_reader_mode: AbiReaderMode::Events,
             output_hex_string_encoding: false,
             unique_key: vec![String::from("hash"), String::from("full_signature"), String::from("address")],
         },
@@ -156,6 +165,8 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
     })
 });
 
+
+// Create a type ConfigValue, that can receive a string, a number, a list of strings, or a boolean.
 #[derive(Clone, FromPyObject, Debug)]
 pub enum ConfigValue {
     String(String),
@@ -164,6 +175,7 @@ pub enum ConfigValue {
     Boolean(bool)
 }
 
+// Implement the From trait for ConfigValue, so that a string, a number, a list of strings, or a boolean can be converted to a ConfigValue.
 impl From<&str> for ConfigValue {
     fn from(s: &str) -> Self {
         ConfigValue::String(s.to_string())
@@ -192,6 +204,7 @@ pub fn get_config() -> Config {
     GLACIERS_CONFIG.read().unwrap().clone()
 }
 
+// Set a config value.
 pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<(), ConfiggerError> {
     let mut config = GLACIERS_CONFIG.write().unwrap();
     let value = value.into();
@@ -220,6 +233,14 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
         },
 
         "abi_reader" => match (field, value) {
+            (Some("abi_reader_mode"), ConfigValue::String(v)) => {
+                match v.to_lowercase().as_str() {
+                    "events" => config.abi_reader.abi_reader_mode = AbiReaderMode::Events,
+                    "functions" => config.abi_reader.abi_reader_mode = AbiReaderMode::Functions,
+                    "both" => config.abi_reader.abi_reader_mode = AbiReaderMode::Both,
+                    _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
+                }
+            },
             (Some("output_hex_string_encoding"), ConfigValue::Boolean(v)) => config.abi_reader.output_hex_string_encoding = v,
             (Some("output_hex_string_encoding"), ConfigValue::Number(v)) => {
                 match v {

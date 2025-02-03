@@ -6,7 +6,7 @@ use polars::prelude::*;
 use chrono::Local;
 use thiserror::Error;
 
-use crate::configger::get_config; 
+use crate::configger::{self, get_config}; 
 use crate::utils;
 
 #[derive(Error, Debug)]
@@ -129,6 +129,7 @@ pub fn read_new_abi_folder(abi_folder_path: &str) -> Result<DataFrame, AbiReader
                 Series::new_empty("full_signature", &DataType::String),
                 Series::new_empty("name", &DataType::String),
                 Series::new_empty("anonymous", &DataType::Boolean),
+                Series::new_empty("num_indexed_args", &DataType::Int8),
                 Series::new_empty("state_mutability", &DataType::String),
                 Series::new_empty("id", &DataType::String),
             ])?);
@@ -176,8 +177,19 @@ pub fn read_new_abi_file(path: PathBuf) -> Result<DataFrame, AbiReaderError> {
 }
 
 pub fn read_new_abi_json(abi: JsonAbi, address: Address) -> Result<DataFrame, AbiReaderError>{
-    let function_rows: Vec<AbiItemRow> = abi.functions().map(|function| create_function_row(function, address)).collect();
-    let event_rows: Vec<AbiItemRow> = abi.events().map(|event| create_event_row(event, address)).collect();
+    let abi_reader_mode = get_config().abi_reader.abi_reader_mode;
+    //Inverted logic. If abi_reader_mode is not Events, then read functions.
+    let function_rows: Vec<AbiItemRow> = if abi_reader_mode != configger::AbiReaderMode::Events {
+        abi.functions().map(|function| create_function_row(function, address)).collect()
+    } else {
+        vec![]
+    };
+    //Inverted logic. If abi_reader_mode is not Functions, then read events.
+    let event_rows: Vec<AbiItemRow> = if abi_reader_mode != configger::AbiReaderMode::Functions {
+        abi.events().map(|event| create_event_row(event, address)).collect()
+    } else {
+        vec![]
+    };
     let abi_rows = [function_rows, event_rows].concat();
     
     create_dataframe_from_rows(abi_rows)

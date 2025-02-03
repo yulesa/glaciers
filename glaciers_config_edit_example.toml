@@ -21,6 +21,8 @@ raw_logs_folder_path = "data/logs"
 
 # Configuration for the ABI reader component
 [abi_reader]
+# Select if events, functions signatures or both are read from the abi_df. Allowed values = ["events", "functions", "both"]
+abi_reader_mode = "events"
 # Use hex string encoding for binary columns for the abi_df
 output_hex_string_encoding = false
 # Fields used to uniquely identify each ABI item. Allowed_keys = ["hash", "full_signature", "address"]
