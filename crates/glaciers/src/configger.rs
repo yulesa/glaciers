@@ -42,6 +42,7 @@ pub struct MainConfig {
     pub abi_df_file_path: String,
     pub abi_folder_path: String,
     pub raw_logs_folder_path: String,
+    pub raw_traces_folder_path: String,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -130,6 +131,8 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
             abi_df_file_path: String::from("ABIs/ethereum__abis.parquet"),
             abi_folder_path: String::from("ABIs/abi_database"),
             raw_logs_folder_path: String::from("data/logs"),
+            // TODO: change this to the correct path
+            raw_traces_folder_path: String::from("data/traces/ethereum__traces__blocks__21_000_000_to_21_000_010.parquet"),
         },
         abi_reader: AbiReaderConfig {
             abi_reader_mode: AbiReaderMode::Events,
@@ -229,6 +232,7 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
             (Some("abi_df_file_path"), ConfigValue::String(v)) => config.main.abi_df_file_path = v,
             (Some("abi_folder_path"), ConfigValue::String(v)) => config.main.abi_folder_path = v,
             (Some("raw_logs_folder_path"), ConfigValue::String(v)) => config.main.raw_logs_folder_path = v,
+            (Some("raw_traces_folder_path"), ConfigValue::String(v)) => config.main.raw_traces_folder_path = v,
             _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
         },
 
