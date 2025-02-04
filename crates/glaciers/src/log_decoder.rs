@@ -376,14 +376,14 @@ fn decode(
     topics: Vec<FixedBytes<32>>,
     data: &[u8],
 ) -> Result<ExtDecodedEvent, LogDecoderError> {
-    let event_sig = parse_event_signature(full_signature)?;
-    let decoded_event = decode_event_log(&event_sig, topics, data)?;
+    let event_obj = parse_event_signature(full_signature)?;
+    let decoded_event = decode_event_log(&event_obj, topics, data)?;
     // Store the indexed values in a vector
     let mut event_values: Vec<DynSolValue> = decoded_event.indexed.clone();
     // Extend the vector with the body(data) values
     event_values.extend(decoded_event.body.clone());
 
-    let structured_event = map_event_sig_and_values(&event_sig, &event_values)?;
+    let structured_event = map_event_sig_and_values(&event_obj, &event_values)?;
     let event_keys: Vec<String> = structured_event.iter().map(|p| p.name.clone()).collect();
     let event_json = serde_json::to_string(&structured_event).unwrap_or_else(|_| "[]".to_string()).trim().to_string();
     // Convert the event_values to a vector of strings

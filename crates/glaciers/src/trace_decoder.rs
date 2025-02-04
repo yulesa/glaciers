@@ -216,7 +216,6 @@ pub fn polars_decode_trace(df: DataFrame) -> Result<DataFrame, TraceDecoderError
 
 }
 
-
 // Helper function to union DataFrames
 async fn union_dataframes(dfs: Vec<DataFrame>) -> Result<DataFrame, TraceDecoderError> {
     // If only one DataFrame, return it directly
@@ -232,60 +231,71 @@ async fn union_dataframes(dfs: Vec<DataFrame>) -> Result<DataFrame, TraceDecoder
 }
 
 fn decode_trace_udf(s: Series) -> PolarsResult<Option<Series>> {
-    println!("s: {:?}", s);
-    Ok(None)
-    // let series_struct_array: &StructChunked = s.struct_()?;
-    // let fields = series_struct_array.fields();
+    let series_struct_array: &StructChunked = s.struct_()?;
+    let fields = series_struct_array.fields();
     
-    // let traces = extract_trace_fields(&fields)?;
+    let traces_data = extract_trace_fields(&fields)?;
+
+    let udf_output: StringChunked = traces_data
+        .into_iter()
+        .map(|(input, output, func_sig)| {
+            decode(input, output, func_sig)
+                .map(|func| {
+                    format!(
+                        "{:?}; {:?}; {}; {:?}; {:?}; {}", 
+                        func.input_values,
+                        func.input_keys,
+                        func.input_json,
+                        func.output_values,
+                        func.output_keys,
+                        func.output_json
+                    )
+                })
+                .ok()
+        })
+        .collect();
+
+    Ok(Some(udf_output.into_series()))
 }
 
-// fn decode_trace_udf(s: Series) -> PolarsResult<Option<Series>> {
-//     let series_struct_array: &StructChunked = s.struct_()?;
-//     let fields = series_struct_array.fields();
-    
-//     let traces = extract_trace_fields(&fields)?;
+fn extract_trace_fields(fields: &[Series]) -> PolarsResult<Vec<(&[u8], &[u8], &str)>> {
+    // let fields_selector = fields[0].binary()?;
+    let fields_input = fields[1].binary()?;
+    let fields_output = fields[2].binary()?;
+    // let fields_address = fields[3].str()?;
+    let fields_sig = fields[4].str()?;
 
-//     let udf_output: StringChunked = traces
-//         .into_iter()
-//         .map(|(input, output, func_sig)| {
-//             decode(func_sig, input, output)
-//                 .map(|func| {
-//                     format!(
-//                         "{:?}; {:?}; {}; {:?}; {:?}; {}", 
-//                         func.input_values,
-//                         func.input_keys,
-//                         func.input_json,
-//                         func.output_values,
-//                         func.output_keys,
-//                         func.output_json
-//                     )
-//                 })
-//                 .ok()
-//         })
-//         .collect();
+    fields_input
+        .into_iter()
+        .zip(fields_output.into_iter())
+        .zip(fields_sig.into_iter())
+        .map(|((opt_input, opt_output), opt_sig)| {
+            let inputs = opt_input.unwrap_or(&[]);
+            let outputs = opt_output.unwrap_or(&[]);
+            let sigs = opt_sig.unwrap_or("");
 
-//     Ok(Some(udf_output.into_series()))
-// }
+            Ok((inputs, outputs, sigs))
+        }
+        )
+        .collect()
+}
 
-// fn extract_trace_fields(fields: &[Series]) -> PolarsResult<Vec<(&[u8], &[u8], &str)>> {
-//     let fields_input = fields[0].binary()?;
-//     let fields_output = fields[1].binary()?;
-//     let fields_sig = fields[2].str()?;
-
-//     fields_input
-//         .into_iter()
-//         .zip(fields_output.into_iter())
-//         .zip(fields_sig.into_iter())
-//         .map(|((opt_input, opt_output), opt_sig)| {
-//             let input = opt_input.unwrap_or(&[]);
-//             let output = opt_output.unwrap_or(&[]);
-//             let sig = opt_sig.unwrap_or("");
-
-//             Ok((input, output, sig))
-//         })
-//         .collect()
-// }
+fn decode(
+    inputs: &[u8],
+    outputs: &[u8],
+    full_signature: &str,
+) -> Result<ExtDecodedFunction, TraceDecoderError> {
+    let function = Function::parse(full_signature);
+    println!("function: {:?}", function);
+    Ok(ExtDecodedFunction {
+        input_values: vec![],
+        input_keys: vec![],
+        input_json: String::new(),
+        output_values: vec![],
+        output_keys: vec![],
+        output_json: String::new(),
+    })
+}
 
 // fn decode(
 //     full_signature: &str,
