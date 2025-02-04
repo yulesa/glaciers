@@ -51,190 +51,194 @@ struct ExtDecodedFunction {
 pub async fn decode_trace_file(
     trace_file_path: String,
     abi_df_path: String,
-) -> Result<(), TraceDecoderError> {
+) -> Result<DataFrame, TraceDecoderError> {
     let trace_file_path = PathBuf::from(trace_file_path);
     let abi_df_path = PathBuf::from(abi_df_path);
 
     let trace_df = utils::read_df_file(&trace_file_path)?;
     let abi_df = utils::read_df_file(&abi_df_path)?;
 
-    decode_trace_df_with_abi_df(trace_df, abi_df).await;
-    Ok(())
+    decode_trace_df_with_abi_df(trace_df, abi_df).await
 }
-
 
 pub async fn decode_trace_df_with_abi_df(
     trace_df: DataFrame,
     abi_df: DataFrame,
-) -> () {
-    println!("trace_df: {:?}", trace_df.head(Some(2)));
-    println!("Using abi_df file: {:?}", abi_df.head(Some(2)));
+) -> Result<DataFrame, TraceDecoderError> {
+    // Convert hash and address columns to binary if they aren't already
+    let abi_df = utils::abi_df_hex_string_columns_to_binary(abi_df)?;
+
+    // perform matching
+    let matched_df = match get_config().trace_decoder.trace_algorithm {
+        configger::TraceAlgorithm::FourBytesAddress => matcher::match_traces_by_4bytes_address(trace_df, abi_df)?,
+        // TODO: add match_traces_by_4bytes
+        configger::TraceAlgorithm::FourBytes => matcher::match_traces_by_4bytes_address(trace_df, abi_df)?
+    };
+
+    // Split traces files in chunk, decode traces, collected and union results and save in the decoded folder
+    decode_traces(matched_df).await
 }
 
-// pub async fn decode_trace_df_with_abi_df(
-//     trace_df: DataFrame,
-//     abi_df: DataFrame,
-// ) -> Result<DataFrame, TraceDecoderError> {
-//     // Convert hash and address columns to binary if they aren't already
-//     let abi_df = utils::abi_df_hex_string_columns_to_binary(abi_df)?;
-
-//     // perform matching
-//     let matched_df = match get_config().trace_decoder.trace_algorithm {
-//         configger::Algorithm::4bytesAddress => matcher::match_traces_by_4bytes_address(trace_df, abi_df)?,
-//         configger::Algorithm::4bytes => matcher::match_traces_by_4bytes(trace_df, abi_df)?
-//     };
-
-//     // Split traces files in chunk, decode traces, collected and union results and save in the decoded folder
-//     decode_traces(matched_df).await
-// }
-
-// pub async fn decode_traces(df: DataFrame) -> Result<DataFrame, TraceDecoderError> {
-//       // Create a semaphore with MAX_THREAD_NUMBER permits
-//       let semaphore = Arc::new(Semaphore::new(get_config().trace_decoder.max_chunk_threads_per_file));
-//       // Create a channel to communicate tasks results
-//       let (tx, mut rx) = mpsc::channel(10);
-//       // Shared vector to collect DataFrame chunks
-//       let collected_dfs = Arc::new(Mutex::new(Vec::new()));
-//       // Vector to hold our tasks handles
-//       let mut handles = Vec::new();
+pub async fn decode_traces(df: DataFrame) -> Result<DataFrame, TraceDecoderError> {
+      // Create a semaphore with MAX_THREAD_NUMBER permits
+      let semaphore = Arc::new(Semaphore::new(get_config().trace_decoder.max_chunk_threads_per_file));
+      // Create a channel to communicate tasks results
+      let (tx, mut rx) = mpsc::channel(10);
+      // Shared vector to collect DataFrame chunks
+      let collected_dfs = Arc::new(Mutex::new(Vec::new()));
+      // Vector to hold our tasks handles
+      let mut handles = Vec::new();
       
-//       // Split the DataFrame in chunks and spawn a task for each chunk
-//       let total_height = df.height();
-//       let mut i = 0;
-//       while i < total_height {
-//           let end = (i + get_config().log_decoder.decoded_chunk_size).min(total_height);
-//           let chunk_df = df.slice(i as i64, end - i);
+      // Split the DataFrame in chunks and spawn a task for each chunk
+      let total_height = df.height();
+      let mut i = 0;
+      while i < total_height {
+          let end = (i + get_config().trace_decoder.decoded_chunk_size).min(total_height);
+          let chunk_df = df.slice(i as i64, end - i);
   
-//           let sem_clone = semaphore.clone();
-//           let tx_clone = tx.clone();
-//           let collected_dfs_clone = collected_dfs.clone();
-//           let handle = task::spawn(async move {
+          let sem_clone = semaphore.clone();
+          let tx_clone = tx.clone();
+          let collected_dfs_clone = collected_dfs.clone();
+          let handle = task::spawn(async move {
   
-//               let _permit = sem_clone.acquire().await;
-//               //Use polars to iterate through each row and decode, communicate through channel the result.
-//               match polars_decode_trace_df(chunk_df) {
-//                   Ok(decoded_chunk) => {
-//                       // Acquire lock before modifying shared state
-//                       let mut dfs = collected_dfs_clone.lock().await;
-//                           dfs.push(decoded_chunk);
+              let _permit = sem_clone.acquire().await;
+              //Use polars to iterate through each row and decode, communicate through channel the result.
+              match polars_decode_trace(chunk_df) {
+                  Ok(decoded_chunk) => {
+                      // Acquire lock before modifying shared state
+                      let mut dfs = collected_dfs_clone.lock().await;
+                          dfs.push(decoded_chunk);
   
-//                           tx_clone
-//                               .send(Ok(()))
-//                               .await
-//                               .expect("Failed to send result. Main thread may have been dropped");
-//                   }
-//                   Err(e) => {
-//                       tx_clone.send(Err(e)).await.expect("Failed. polars_decode_trace_df returned an error");
-//                   }
-//               }
-//               // Permit is automatically released when _permit goes out of scope
-//           });
+                          tx_clone
+                              .send(Ok(()))
+                              .await
+                              .expect("Failed to send result. Main thread may have been dropped");
+                  }
+                  Err(e) => {
+                      tx_clone.send(Err(e)).await.expect("Failed. polars_decode_trace_df returned an error");
+                  }
+              }
+              // Permit is automatically released when _permit goes out of scope
+          });
           
-//           handles.push(handle);
-//           i = end;
-//       }
+          handles.push(handle);
+          i = end;
+      }
       
-//       // Drop the original sender to allow rx to complete
-//       drop(tx);
+      // Drop the original sender to allow rx to complete
+      drop(tx);
       
-//       // Collect all results
-//       while let Some(result) = rx.recv().await {
-//           match result {
-//               Ok(_) => {}
-//               Err(e) => return Err(e),
-//           }
-//       }
+      // Collect all results
+      while let Some(result) = rx.recv().await {
+          match result {
+              Ok(_) => {}
+              Err(e) => return Err(e),
+          }
+      }
           
-//       // Wait for all spawned tasks to complete
-//       for handle in handles {
-//           handle.await?;
-//       }
+      // Wait for all spawned tasks to complete
+      for handle in handles {
+          handle.await?;
+      }
       
-//       let collected_dfs = collected_dfs.lock().await.clone();
+      let collected_dfs = collected_dfs.lock().await.clone();
       
-//       // Concatenate and save the final DataFrame
-//       union_dataframes(collected_dfs).await
-//   }
+      // Concatenate and save the final DataFrame
+      union_dataframes(collected_dfs).await
+  }
 
-// pub fn polars_decode_trace_df(df: DataFrame) -> Result<DataFrame, TraceDecoderError> {
-//     // Get function signature and data from DataFrame
-//     let f: Function = serde_json::from_str(&df.column("function")?.utf8()?.get(0).unwrap_or_default())?;
+pub fn polars_decode_trace(df: DataFrame) -> Result<DataFrame, TraceDecoderError> {
+    let input_schema_alias = get_config().trace_decoder.trace_schema.trace_alias;
+
+    let mut alias_exprs: Vec<Expr> = input_schema_alias.as_array()
+        .iter()
+        .map(|alias| col(alias.as_str()).alias(alias.as_str()))
+        .collect();
+    alias_exprs.push(col("full_signature").alias("full_signature"));
     
-//     // Use polars to decode each row
-//     let decoded_df = df
-//         .lazy()
-//         .with_columns([
-//             col("*"),
-//             as_struct([
-//                 col("input").alias("input"),
-//                 col("output").alias("output"),
-//                 col("function").alias("function")
-//             ])
-//             .map(decode_trace_udf, GetOutput::from_type(DataType::String))
-//             .alias("decoded_trace")
-//         ])
-//         .with_columns([
-//             col("decoded_trace")
-//                 .str()
-//                 .split(lit(";"))
-//                 .list()
-//                 .get(lit(0))
-//                 .alias("input_values"),
-//             col("decoded_trace")
-//                 .str()
-//                 .split(lit(";"))
-//                 .list()
-//                 .get(lit(1))
-//                 .alias("input_keys"),
-//             col("decoded_trace")
-//                 .str()
-//                 .split(lit(";"))
-//                 .list()
-//                 .get(lit(2))
-//                 .alias("input_json"),
-//             col("decoded_trace")
-//                 .str()
-//                 .split(lit(";"))
-//                 .list()
-//                 .get(lit(3))
-//                 .alias("output_values"),
-//             col("decoded_trace")
-//                 .str()
-//                 .split(lit(";"))
-//                 .list()
-//                 .get(lit(4))
-//                 .alias("output_keys"),
-//             col("decoded_trace")
-//                 .str()
-//                 .split(lit(";"))
-//                 .list()
-//                 .get(lit(5))
-//                 .alias("output_json")
-//         ])
-//         .select([col("*").exclude(["decoded_trace"])])
-//         .collect()?;
+    println!("alias_exprs: {:?}", alias_exprs);
+    // Use polars to decode each row
+    let decoded_df = df
+        .lazy()
+        .with_columns([as_struct(alias_exprs)
+            .map(decode_trace_udf, GetOutput::from_type(DataType::String))
+            .alias("decoded_trace")
+        ])
+        // .with_columns([
+        //     col("decoded_trace")
+        //         .str()
+        //         .split(lit(";"))
+        //         .list()
+        //         .get(lit(0))
+        //         .alias("input_values"),
+        //     col("decoded_trace")
+        //         .str()
+        //         .split(lit(";"))
+        //         .list()
+        //         .get(lit(1))
+        //         .alias("input_keys"),
+        //     col("decoded_trace")
+        //         .str()
+        //         .split(lit(";"))
+        //         .list()
+        //         .get(lit(2))
+        //         .alias("input_json"),
+        //     col("decoded_trace")
+        //         .str()
+        //         .split(lit(";"))
+        //         .list()
+        //         .get(lit(3))
+        //         .alias("output_values"),
+        //     col("decoded_trace")
+        //         .str()
+        //         .split(lit(";"))
+        //         .list()
+        //         .get(lit(4))
+        //         .alias("output_keys"),
+        //     col("decoded_trace")
+        //         .str()
+        //         .split(lit(";"))
+        //         .list()
+        //         .get(lit(5))
+        //         .alias("output_json")
+        // ])
+        // .select([col("*").exclude(["decoded_trace"])])
+        .collect()?;
 
-//     Ok(if get_config().trace_decoder.output_hex_string_encoding {
-//         utils::binary_columns_to_hex_string(decoded_df)?
-//     } else {
-//         decoded_df
-//     })
-// }
+    // Ok(if get_config().trace_decoder.output_hex_string_encoding {
+    //     utils::binary_columns_to_hex_string(decoded_df)?
+    // } else {
+    //     decoded_df
+    // })
+    utils::write_df_file(&mut decoded_df.clone(), Path::new("decoded_trace.parquet"))?;
+    println!("decoded_df: {:?}", decoded_df);
+    Ok(decoded_df)
+
+}
 
 
-// // Helper function to union DataFrames
-// async fn union_dataframes(dfs: Vec<DataFrame>) -> Result<DataFrame, TraceDecoderError> {
-//     // If only one DataFrame, return it directly
-//     if dfs.len() == 1 {
-//         return Ok(dfs[0].clone());
-//     }
+// Helper function to union DataFrames
+async fn union_dataframes(dfs: Vec<DataFrame>) -> Result<DataFrame, TraceDecoderError> {
+    // If only one DataFrame, return it directly
+    if dfs.len() == 1 {
+        return Ok(dfs[0].clone());
+    }
 
-//     // Use Polars' vertical concatenation with union semantics
-//     let lazy_dfs: Vec<LazyFrame> = dfs.into_iter().map(|df| df.lazy()).collect();
-//     let unioned_df = concat(&lazy_dfs, UnionArgs::default())?.collect()?;
+    // Use Polars' vertical concatenation with union semantics
+    let lazy_dfs: Vec<LazyFrame> = dfs.into_iter().map(|df| df.lazy()).collect();
+    let unioned_df = concat(&lazy_dfs, UnionArgs::default())?.collect()?;
 
-//     Ok(unioned_df)
-// }
+    Ok(unioned_df)
+}
+
+fn decode_trace_udf(s: Series) -> PolarsResult<Option<Series>> {
+    println!("s: {:?}", s);
+    Ok(None)
+    // let series_struct_array: &StructChunked = s.struct_()?;
+    // let fields = series_struct_array.fields();
+    
+    // let traces = extract_trace_fields(&fields)?;
+}
 
 // fn decode_trace_udf(s: Series) -> PolarsResult<Option<Series>> {
 //     let series_struct_array: &StructChunked = s.struct_()?;
