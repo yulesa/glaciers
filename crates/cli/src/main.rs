@@ -112,7 +112,6 @@ async fn async_main() -> Result<(), AppError> {
 
         Commands::DecodeTraces { trace_path, abi_df_path } => {
             let trace_path = trace_path.unwrap_or_else(|| configger::get_config().main.raw_traces_folder_path);
-            println!("trace_path: {:?}", trace_path);
             let abi_df_path = abi_df_path.unwrap_or_else(|| configger::get_config().main.abi_df_file_path);
             
             let trace_path = PathBuf::from(trace_path);

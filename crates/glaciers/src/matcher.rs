@@ -9,8 +9,8 @@ pub enum MatcherError {
 }
 
 pub fn match_logs_by_topic0_address(log_df: DataFrame, abi_df: DataFrame) -> Result<DataFrame, MatcherError> {
-    let topic0_alias = get_config().log_decoder.schema.alias.topic0;
-    let address_alias = get_config().log_decoder.schema.alias.address;
+    let topic0_alias = get_config().log_decoder.log_schema.log_alias.topic0;
+    let address_alias = get_config().log_decoder.log_schema.log_alias.address;
 
 
     let logs_left_join_abi_df = log_df
@@ -54,7 +54,7 @@ pub fn match_logs_by_topic0(log_df: DataFrame, abi_df: DataFrame) -> Result<Data
             all().first()
         ]).drop(["address", "signature_count"]);
 
-    let topic0_alias = get_config().log_decoder.schema.alias.topic0;
+    let topic0_alias = get_config().log_decoder.log_schema.log_alias.topic0;
     // add a column with the number of indexed args
     let logs_2 = logs_address_not_matched
         .with_column((lit(1 as u32) +
@@ -74,4 +74,21 @@ pub fn match_logs_by_topic0(log_df: DataFrame, abi_df: DataFrame) -> Result<Data
     let logs_df = logs_address_matched.vstack(&logs_2)?;
 
     Ok(logs_df)
+}
+
+pub fn match_traces_by_4bytes_address(trace_df: DataFrame, abi_df: DataFrame) -> Result<DataFrame, MatcherError> {
+    let selector_alias = get_config().trace_decoder.trace_schema.trace_alias.selector;
+    let trace_to = get_config().trace_decoder.trace_schema.trace_alias.trace_to;
+
+    let traces_left_join_abi_df = trace_df
+        .lazy()
+        .join(
+            abi_df.lazy(),
+            [col(selector_alias.as_str()), col(trace_to.as_str())],
+            [col("hash"), col("address")],
+            JoinArgs::new(JoinType::Left),
+        )
+        .collect()?;
+
+    Ok(traces_left_join_abi_df)
 }
