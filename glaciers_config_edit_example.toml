@@ -53,3 +53,29 @@ max_concurrent_files_decoding = 16
 max_chunk_threads_per_file = 16
 # Number of log entries to process in each chunk.
 decoded_chunk_size = 500_000
+
+# Settings for the trace decoder component
+[trace_decoder]
+# logs_algorithm: algorithm to use for matching logs to ABI signatures, allowed values = 
+#   - "4bytes_address": match logs to ABI signatures using both topic0 and address, only contracts with ABI in the abi_df will be matched
+#   - "4bytes": match logs to ABI signatures by topic0, for contracts without ABIs in the abi_df, the most frequent signature in the abi_df will be matched
+trace_algorithm = "4bytes_address"
+# Schema in the raw traces input dataframe
+# alias: name of the column in the input dataframe
+schema.alias = {selector = "selector", trace_input = "trace_input", trace_output = "trace_output", address = "trace_to"}
+# datatype: type of the column in the input dataframe, allowed values = ["Binary", "HexString"]
+schema.datatype = {selector = "Binary", trace_input = "Binary", trace_output = "Binary", trace_to = "Binary"}
+# Use hex string encoding for binary columns in the outputing dataframes
+output_hex_string_encoding = false
+# output_file_format: format of the output saved file, allowed values = ["csv", "parquet"]
+output_file_format = "parquet"
+# Maximum number of threads spwaned which will process each log files in parallel.
+# Each thread will process one log file, and can break it into chunks.
+# Only used when processing multiple log files in folder.
+max_concurrent_files_decoding = 16
+# Maximum number of threads spwaned when processing each file.
+# Each thread will process a decoded_chunk_size of the log file.
+# Only used when processing larger log files (bigger than decoded_chunk_size).
+max_chunk_threads_per_file = 16
+# Number of log entries to process in each chunk.
+decoded_chunk_size = 500_000

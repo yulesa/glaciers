@@ -175,8 +175,8 @@ pub async fn decode_log_df_with_abi_df(
 
     // perform matching
     let matched_df = match get_config().log_decoder.logs_algorithm {
-        configger::Algorithm::Topic0Address => matcher::match_logs_by_topic0_address(log_df, abi_df)?,
-        configger::Algorithm::Topic0 => matcher::match_logs_by_topic0(log_df, abi_df)?
+        configger::LogAlgorithm::Topic0Address => matcher::match_logs_by_topic0_address(log_df, abi_df)?,
+        configger::LogAlgorithm::Topic0 => matcher::match_logs_by_topic0(log_df, abi_df)?
     };
 
     // Split logs files in chunk, decode logs, collected and union results and save in the decoded folder
@@ -253,7 +253,7 @@ pub async fn decode_logs(df: DataFrame) -> Result<DataFrame, LogDecoderError> {
 }
 
 pub fn polars_decode_logs(df: DataFrame) -> Result<DataFrame, LogDecoderError> {
-    let input_schema_alias = get_config().log_decoder.schema.alias;
+    let input_schema_alias = get_config().log_decoder.log_schema.log_alias;
 
     let mut alias_exprs: Vec<Expr> = input_schema_alias.as_array()
         .iter()
