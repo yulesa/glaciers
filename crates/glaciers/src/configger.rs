@@ -120,7 +120,8 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
             unnesting_hex_string_encoding: false,
         },
         main: MainConfig {
-            abi_df_file_path: String::from("ABIs/ethereum__abis.parquet"),
+            // TODO: change this to the correct path
+            abi_df_file_path: String::from("ABIs/ethereum__functions__abis.parquet"),
             abi_folder_path: String::from("ABIs/abi_database"),
             raw_logs_folder_path: String::from("data/logs"),
             // TODO: change this to the correct path
