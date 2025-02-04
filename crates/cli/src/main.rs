@@ -125,7 +125,7 @@ async fn async_main() -> Result<(), AppError> {
             // } else {
             //     trace_decoder::decode_trace_file(trace_path, abi_df_path).await?;
             // }
-            trace_decoder::decode_trace_file(trace_path.to_string_lossy().into_owned(), abi_df_path).await?;
+            trace_decoder::decode_trace_df(trace_path.to_string_lossy().into_owned(), abi_df_path).await?;
         }
     }
 

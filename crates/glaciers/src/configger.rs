@@ -87,6 +87,7 @@ pub struct LogAliasConfig {
 
 impl LogAliasConfig {
     pub fn as_array(&self) -> Vec<String> {
+        // excluding the address column because it is not used in the log decoding
         vec![self.topic0.clone(), self.topic1.clone(), self.topic2.clone(), self.topic3.clone(), self.data.clone()]
     }
 }
@@ -140,7 +141,8 @@ pub struct TraceAliasConfig {
 
 impl TraceAliasConfig {
     pub fn as_array(&self) -> Vec<String> {
-        vec![self.selector.clone(), self.trace_input.clone(), self.trace_output.clone(), self.trace_to.clone()]
+        // excluding the selector and address column because it is not used in the trace decoding
+        vec![self.trace_input.clone(), self.trace_output.clone()]
     }
 }
 
