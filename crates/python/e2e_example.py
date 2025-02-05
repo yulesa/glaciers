@@ -18,7 +18,7 @@ print(f"Glaciers config:\n{config}")
 config = toml.load(StringIO(config))
 
 abi_file_path = project_dir+config['main']['abi_df_file_path']
-abis_folder_path = project_dir+config['main']['abi_folder_path']
+abi_folder_path = project_dir+config['main']['abi_folder_path']
 logs_folder_path = project_dir+config['main']['raw_logs_folder_path']
 
 logs_df = pl.read_parquet(f"{logs_folder_path}/{LOGS_FILE_NAME}")
@@ -34,15 +34,15 @@ print(f"Raw logs file: \n{logs_df.head()}\n\n")
 # into an existing abi DF (parquet file) the new unique entries. Function also output the dataframe.
 #
 # # Arguments
-# - `abi_file_path`: Path to the parquet file containing the existing DataFrame.
-# - `abi_folder_path`: Path to the folder containing ABI JSON files
+# - `abi_file_path`: Optional, default in config. Path to the parquet file containing the existing DataFrame.
+# - `abi_folder_path`: Optional, default in config. Path to the folder containing ABI JSON files
 #
 # # Returns
 # A `PyResult` containing a `PyDataFrame` with all unique topic0 and event signatures
 #
 # # Errors
 # Returns a `PyValueError` if there are issues reading or processing the ABIs
-abis_df = gl.update_abi_df(abi_file_path, abis_folder_path)
+abis_df = gl.update_abi_df(abi_df_path=abi_file_path, abi_folder_path=abi_folder_path)
 print(f"\nFirst 5 rows of updatedABIs DataFrame:\n{abis_df.head()}\n\n")
 
 ######## Test read_new_abi_folder ########
@@ -52,14 +52,14 @@ print(f"\nFirst 5 rows of updatedABIs DataFrame:\n{abis_df.head()}\n\n")
 # all functions and events found in the ABI files.
 #
 # # Arguments
-# - `abi_folder_path`: Path to the folder containing ABI JSON files
+# - `abi_folder_path`: Optional, default in config. Path to the folder containing ABI JSON files
 #
 # # Returns
 # A `PyResult` containing a `PyDataFrame` with all functions and events
 #
 # # Errors
 # Returns a `PyValueError` if there are issues reading or processing the ABIs
-folder_df = gl.read_new_abi_folder(abis_folder_path)
+folder_df = gl.read_new_abi_folder(abi_folder_path=abi_folder_path)
 print(f"\nABIs DataFrame from folder:\n{folder_df.head()}\n\n")
 
 
@@ -77,8 +77,8 @@ print(f"\nABIs DataFrame from folder:\n{folder_df.head()}\n\n")
 #
 # # Errors
 # Returns a `PyValueError` if there are issues reading or processing the ABI
-abi_file = os.path.join(abis_folder_path, os.listdir(abis_folder_path)[0])  # Get first ABI file
-file_df = gl.read_new_abi_file(abi_file)
+abi_file = os.path.join(abi_folder_path, os.listdir(abi_folder_path)[0])  # Get first ABI file
+file_df = gl.read_new_abi_file(path=abi_file)
 print(f"\nABIs DataFrame from single file:\n{file_df.head()}\n\n")
 
 
@@ -131,22 +131,23 @@ with open(abi_file, 'r') as f:
 
 
 
-######## Test decode_log_folder ########
-# Decode a folder of logs.
+######## Test decode_folder ########
+# Decode a folder of logs/traces.
 #
 # This function takes a logs folder path and a abi parquet file path. It iterate through 
 # logs files, decode, and save them into decoded logs' files.
 #
 # # Arguments
-# - `log_folder_path`: Path to a folder containing the logs files
-# - `abi_file_path`: Path to the abi parquet file
+# - `decoder_type`: Type of the decoder to use, allowed values = ["log", "trace"]
+# - `abi_df_path`: Optional, default in config. Path to the abi parquet file
+# - `folder_path`: Optional, default in config. Path to the folder containing the logs/traces files
 #
 # # Returns
 # No Return
 #
 # # Errors
 # Returns a `PyValueError` if there are issues processing the logs
-gl.decode_log_folder(logs_folder_path, abi_file_path)
+gl.decode_folder(decoder_type="log", abi_df_path=abi_file_path, folder_path=logs_folder_path)
 print(f"\n Decoded logs saved in the decoded folder.\n\n")
 
 
@@ -163,7 +164,7 @@ print(f"\n Decoded logs saved in the decoded folder.\n\n")
 # # Returns
 # A `PyResult` containing a decoded logs' `PyDataFrame` or an error
 log_file = os.path.join(logs_folder_path, os.listdir(logs_folder_path)[0])  # Get first log file
-decoded_df = gl.decode_log_file(log_file, abi_file_path)
+decoded_df = gl.decode_file(decoder_type="log", file_path=log_file, abi_df_path=abi_file_path)
 print(f"\nDecoded Logs in the log file {log_file}:\n{decoded_df.head()}\n\n")
 
 
@@ -183,7 +184,7 @@ print(f"\nDecoded Logs in the log file {log_file}:\n{decoded_df.head()}\n\n")
 # # Errors
 # Returns a `PyValueError` if there are issues processing the logs
 logs_df = pl.read_parquet(f"{logs_folder_path}/{LOGS_FILE_NAME}")
-decoded_df = gl.decode_log_df(logs_df, abi_file_path)
+decoded_df = gl.decode_df(df=logs_df, decoder_type="log", abi_df_path=abi_file_path)
 print(f"\nDecoded Logs DataFrame:\n{decoded_df.head()}\n\n")
 
 
@@ -202,38 +203,8 @@ print(f"\nDecoded Logs DataFrame:\n{decoded_df.head()}\n\n")
 
 logs_df = pl.read_parquet(f"{logs_folder_path}/{LOGS_FILE_NAME}")
 abi_df = pl.read_parquet(abi_file_path)
-decoded_df = gl.decode_log_df_with_abi_df(logs_df, abi_df)
+decoded_df = gl.decode_df_with_abi_df(df=logs_df, abi_df=abi_df, decoder_type="log")
 print(f"\nDecoded Logs using ABI DataFrame:\n{decoded_df.head()}\n\n")
-
-
-######## Test polars_decode_logs ########
-# Decode dataframe event logs using ABI definitions dataframe, without multi-threading
-#
-# Args:
-#     logs_df: A DataFrame containing the raw logs.
-#     abi_df: A DataFrame containing:
-#         - topic0: The topic0 (event signature hash) as bytes
-#         - full_signature: The full event signature as string (e.g. "Transfer(address indexed from, address indexed to, uint256 value)")
-#
-# Returns:
-#     A DataFrame containing the decoded events with additional columns:
-#     - event_values: The decoded parameter values
-#     - event_keys: The parameter names
-#     - event_json: JSON representation of the decoded event
-# Transfer event
-TRANSFER_EVENT = "event Transfer(address indexed from, address indexed to, uint256 value)"
-TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
-# Create ABI DataFrame
-abi_df = pl.DataFrame(
-    {
-        "topic0": TRANSFER_TOPIC,
-        "full_signature": TRANSFER_EVENT,
-        "name": "Transfer",
-    }
-)
-# Decode the events
-decoded_df = gl.polars_decode_logs(logs_df, abi_df)
-print(f"\nDecoded Logs DataFrame:\n{decoded_df.head(5)}\n\n")
 
 
 ######## Test unnest_event ########
