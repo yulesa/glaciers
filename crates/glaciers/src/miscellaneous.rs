@@ -21,7 +21,7 @@ pub enum MiscellaneousError {
     DecoderError(#[from] decoder::DecoderError),
 }
 
-pub async fn decode_df_using_single_contract(log_df: DataFrame, contract_address: String, decoder_type: DecoderType) -> Result<DataFrame, MiscellaneousError> {
+pub async fn decode_df_using_single_contract(df: DataFrame, contract_address: String, decoder_type: DecoderType) -> Result<DataFrame, MiscellaneousError> {
     // Download the ABI from Sourcify
     let client = Client::new();
     let response = client
@@ -39,7 +39,7 @@ pub async fn decode_df_using_single_contract(log_df: DataFrame, contract_address
     let address = Address::from_str(&contract_address).map_err(|e| MiscellaneousError::InvalidAddress(e.to_string()))?;
 
     let abi_df = abi_reader::read_new_abi_json(abi, address)?;
-    let log_df = decoder::decode_df_with_abi_df(log_df, abi_df, decoder_type).await?;
+    let decoded_df = decoder::decode_df_with_abi_df(df, abi_df, decoder_type).await?;
 
-    Ok(log_df)
+    Ok(decoded_df)
 }

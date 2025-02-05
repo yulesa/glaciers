@@ -127,29 +127,29 @@ pub struct TraceSchemaConfig {
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct TraceAliasConfig {
     pub selector: String,
-    pub trace_input: String,
-    pub trace_output: String,
-    pub trace_to: String,
+    pub action_input: String,
+    pub result_output: String,
+    pub action_to: String,
 }
 
 impl TraceAliasConfig {
     pub fn as_array(&self) -> Vec<String> {
         // excluding the selector and address column because it is not used in the trace decoding
-        vec![self.trace_input.clone(), self.trace_output.clone()]
+        vec![self.action_input.clone(), self.result_output.clone()]
     }
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct TraceDatatypeConfig {
     pub selector: DataType,
-    pub trace_input: DataType,
-    pub trace_output: DataType,
-    pub trace_to: DataType,
+    pub action_input: DataType,
+    pub result_output: DataType,
+    pub action_to: DataType,
 }
 
 impl TraceDatatypeConfig {
     pub fn as_array(&self) -> Vec<DataType> {
-        vec![self.selector.clone(), self.trace_input.clone(), self.trace_output.clone(), self.trace_to.clone()]
+        vec![self.selector.clone(), self.action_input.clone(), self.result_output.clone(), self.action_to.clone()]
     }
 }
 
@@ -210,15 +210,15 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
                 trace_alias: TraceAliasConfig {
                     // TODO: change this to the correct alias
                     selector: String::from("selector"),
-                    trace_input: String::from("action_input"),
-                    trace_output: String::from("result_output"),
-                    trace_to: String::from("action_to"),
+                    action_input: String::from("action_input"),
+                    result_output: String::from("result_output"),
+                    action_to: String::from("action_to"),
                 },
                 trace_datatype: TraceDatatypeConfig {
                     selector: DataType::Binary,
-                    trace_input: DataType::Binary,
-                    trace_output: DataType::Binary,
-                    trace_to: DataType::Binary,
+                    action_input: DataType::Binary,
+                    result_output: DataType::Binary,
+                    action_to: DataType::Binary,
                 }
             },
         },
@@ -389,9 +389,9 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
                 (Some("alias"), ConfigValue::String(v)) => {
                     match schema_field {
                         Some("selector") => config.trace_decoder.trace_schema.trace_alias.selector = v,
-                        Some("trace_input") => config.trace_decoder.trace_schema.trace_alias.trace_input = v,
-                        Some("trace_output") => config.trace_decoder.trace_schema.trace_alias.trace_output = v,
-                        Some("address") => config.trace_decoder.trace_schema.trace_alias.trace_to = v,
+                        Some("action_input") => config.trace_decoder.trace_schema.trace_alias.action_input = v,
+                        Some("result_output") => config.trace_decoder.trace_schema.trace_alias.result_output = v,
+                        Some("action_to") => config.trace_decoder.trace_schema.trace_alias.action_to = v,
                         _ => return Err(ConfiggerError::InvalidFieldOrValue(schema_field.unwrap_or("").to_string()))
                     }
                 },
@@ -402,17 +402,17 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
                             "hexstring" => DataType::HexString,
                             _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
                         },
-                        Some("trace_input") => config.trace_decoder.trace_schema.trace_datatype.trace_input = match v.to_lowercase().as_str() {
+                        Some("action_input") => config.trace_decoder.trace_schema.trace_datatype.action_input = match v.to_lowercase().as_str() {
                             "binary" => DataType::Binary,
                             "hexstring" => DataType::HexString,
                             _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
                         },
-                        Some("trace_output") => config.trace_decoder.trace_schema.trace_datatype.trace_output = match v.to_lowercase().as_str() {
+                        Some("result_output") => config.trace_decoder.trace_schema.trace_datatype.result_output = match v.to_lowercase().as_str() {
                             "binary" => DataType::Binary,
                             "hexstring" => DataType::HexString,
                             _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
                         },
-                        Some("address") => config.trace_decoder.trace_schema.trace_datatype.trace_to = match v.to_lowercase().as_str() {
+                        Some("action_to") => config.trace_decoder.trace_schema.trace_datatype.action_to = match v.to_lowercase().as_str() {
                             "binary" => DataType::Binary,
                             "hexstring" => DataType::HexString,
                             _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
