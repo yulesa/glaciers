@@ -30,17 +30,11 @@ output_hex_string_encoding = false
 # Fields used to uniquely identify each ABI item. Allowed_keys = ["hash", "full_signature", "address"]
 unique_key = ["hash", "full_signature", "address"]
 
-# Settings for the log decoder component
-[log_decoder]
-# logs_algorithm: algorithm to use for matching logs to ABI signatures, allowed values = 
-#   - "topic0_address": match logs to ABI signatures using both topic0 and address, only contracts with ABI in the abi_df will be matched
-#   - "topic0": match logs to ABI signatures by topic0, for contracts without ABIs in the abi_df, the most frequent signature in the abi_df will be matched
-logs_algorithm = "topic0"
-# Schema in the raw logs input dataframe
-# alias: name of the column in the input dataframe
-schema.alias = {topic0 = "topic0", topic1 = "topic1", topic2 = "topic2", topic3 = "topic3", data = "data", address = "address"}
-# datatype: type of the column in the input dataframe, allowed values = ["Binary", "HexString"]
-schema.datatype = {topic0 = "Binary", topic1 = "Binary", topic2 = "Binary", topic3 = "Binary", data = "Binary", address = "Binary"}
+[decoder]
+# algorithm: algorithm to use for matching logs/traces to ABI signatures, allowed values = 
+#   - "hash_address": match logs/traces to ABI signatures using both hash and address, only contracts with ABI in the abi_df will be matched
+#   - "hash": match logs/traces to ABI signatures by hash, for contracts without ABIs in the abi_df, the most frequent signature in the abi_df will be matched
+algorithm = "hash_address"
 # Use hex string encoding for binary columns in the outputing dataframes
 output_hex_string_encoding = false
 # output_file_format: format of the output saved file, allowed values = ["csv", "parquet"]
@@ -56,28 +50,18 @@ max_chunk_threads_per_file = 16
 # Number of log entries to process in each chunk.
 decoded_chunk_size = 500_000
 
+# Settings for the log decoder component
+[log_decoder]
+# Schema in the raw logs input dataframe
+# alias: name of the column in the input dataframe
+schema.alias = {topic0 = "topic0", topic1 = "topic1", topic2 = "topic2", topic3 = "topic3", data = "data", address = "address"}
+# datatype: type of the column in the input dataframe, allowed values = ["Binary", "HexString"]
+schema.datatype = {topic0 = "Binary", topic1 = "Binary", topic2 = "Binary", topic3 = "Binary", data = "Binary", address = "Binary"}
+
 # Settings for the trace decoder component
 [trace_decoder]
-# logs_algorithm: algorithm to use for matching logs to ABI signatures, allowed values = 
-#   - "4bytes_address": match logs to ABI signatures using both topic0 and address, only contracts with ABI in the abi_df will be matched
-#   - "4bytes": match logs to ABI signatures by topic0, for contracts without ABIs in the abi_df, the most frequent signature in the abi_df will be matched
-trace_algorithm = "4bytes_address"
 # Schema in the raw traces input dataframe
 # alias: name of the column in the input dataframe
 schema.alias = {selector = "selector", trace_input = "trace_input", trace_output = "trace_output", address = "trace_to"}
 # datatype: type of the column in the input dataframe, allowed values = ["Binary", "HexString"]
 schema.datatype = {selector = "Binary", trace_input = "Binary", trace_output = "Binary", trace_to = "Binary"}
-# Use hex string encoding for binary columns in the outputing dataframes
-output_hex_string_encoding = false
-# output_file_format: format of the output saved file, allowed values = ["csv", "parquet"]
-output_file_format = "parquet"
-# Maximum number of threads spwaned which will process each log files in parallel.
-# Each thread will process one log file, and can break it into chunks.
-# Only used when processing multiple log files in folder.
-max_concurrent_files_decoding = 16
-# Maximum number of threads spwaned when processing each file.
-# Each thread will process a decoded_chunk_size of the log file.
-# Only used when processing larger log files (bigger than decoded_chunk_size).
-max_chunk_threads_per_file = 16
-# Number of log entries to process in each chunk.
-decoded_chunk_size = 500_000
