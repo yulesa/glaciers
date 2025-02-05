@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
-use glaciers::{abi_reader, configger, log_decoder, trace_decoder};
+use glaciers::{abi_reader, configger};
+use glaciers::decoder::{self, DecoderType};
 use std::path::PathBuf;
 use thiserror::Error;
 
@@ -9,10 +10,8 @@ enum AppError {
     ConfigError(#[from] configger::ConfiggerError),
     #[error("ABI Reader error: {0}")]
     AbiError(#[from] abi_reader::AbiReaderError),
-    #[error("Log decoder error: {0}")]
-    LogDecoderError(#[from] log_decoder::LogDecoderError),
-    #[error("Trace decoder error: {0}")]
-    TraceDecoderError(#[from] trace_decoder::TraceDecoderError),
+    #[error("Decoder error: {0}")]
+    DecoderError(#[from] decoder::DecoderError),
     #[error("Invalid input: {0}")]
     InvalidInput(String),
 }
@@ -104,9 +103,9 @@ async fn async_main() -> Result<(), AppError> {
             }
 
             if log_path.is_dir() {
-                log_decoder::decode_log_folder(log_path.to_string_lossy().into_owned(), abi_df_path).await?;
+                decoder::decode_folder(log_path.to_string_lossy().into_owned(), abi_df_path, DecoderType::Log).await?;
             } else {
-                log_decoder::decode_log_file(log_path, abi_df_path).await?;
+                decoder::decode_file(log_path, abi_df_path, DecoderType::Log).await?;
             }
         }
 
@@ -121,9 +120,9 @@ async fn async_main() -> Result<(), AppError> {
             }
 
             if trace_path.is_dir() {
-                trace_decoder::decode_trace_folder(trace_path.to_string_lossy().into_owned(), abi_df_path).await?;
+                decoder::decode_folder(trace_path.to_string_lossy().into_owned(), abi_df_path, DecoderType::Trace).await?;
             } else {
-                trace_decoder::decode_trace_file(trace_path, abi_df_path).await?;
+                decoder::decode_file(trace_path, abi_df_path, DecoderType::Trace).await?;
             }
         }
     }
