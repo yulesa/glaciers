@@ -62,6 +62,6 @@ schema.datatype = {topic0 = "Binary", topic1 = "Binary", topic2 = "Binary", topi
 [trace_decoder]
 # Schema in the raw traces input dataframe
 # alias: name of the column in the input dataframe
-schema.alias = {selector = "selector", trace_input = "trace_input", trace_output = "trace_output", address = "trace_to"}
+schema.alias = {selector = "selector", action_input = "action_input", result_output = "result_output", action_to = "action_to"}
 # datatype: type of the column in the input dataframe, allowed values = ["Binary", "HexString"]
-schema.datatype = {selector = "Binary", trace_input = "Binary", trace_output = "Binary", trace_to = "Binary"}
+schema.datatype = {selector = "Binary", action_input = "Binary", result_output = "Binary", action_to = "Binary"}

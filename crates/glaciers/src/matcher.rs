@@ -78,13 +78,13 @@ pub fn match_logs_by_topic0(log_df: DataFrame, abi_df: DataFrame) -> Result<Data
 
 pub fn match_traces_by_4bytes_address(trace_df: DataFrame, abi_df: DataFrame) -> Result<DataFrame, MatcherError> {
     let selector_alias = get_config().trace_decoder.trace_schema.trace_alias.selector;
-    let trace_to = get_config().trace_decoder.trace_schema.trace_alias.trace_to;
+    let action_to = get_config().trace_decoder.trace_schema.trace_alias.action_to;
 
     let traces_left_join_abi_df = trace_df
         .lazy()
         .join(
             abi_df.lazy(),
-            [col(selector_alias.as_str()), col(trace_to.as_str())],
+            [col(selector_alias.as_str()), col(action_to.as_str())],
             [col("hash"), col("address")],
             JoinArgs::new(JoinType::Left),
         )
