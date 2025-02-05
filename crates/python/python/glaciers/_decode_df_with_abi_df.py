@@ -2,21 +2,28 @@ import polars as pl
 from ._dataframe_utils import DataFrameType, to_polars, to_prefered_type
 from . import _glaciers_python
 
-async def async_decode_log_df_with_abi_df(
-    log_df: DataFrameType,
+async def async_decode_df_with_abi_df(
+    df: DataFrameType,
     abi_df: DataFrameType,
+    decoder_type: str,  
 ) -> DataFrameType:
-    log_df_pl = to_polars(log_df)
-    abi_df_pl = to_polars(abi_df)
-    result_pl: pl.DataFrame = await _glaciers_python.decode_log_df_with_abi_df(log_df_pl, abi_df_pl)
+    valid_decoder_types = ["log", "trace"]
+    if decoder_type not in valid_decoder_types:
+        raise ValueError(f"Decoder type must be one of {valid_decoder_types}")
+    
+    df_pl = to_polars(df)
+    abi_df_pl = to_polars(abi_df)   
+    is_log_type = decoder_type == "log"
+    result_pl: pl.DataFrame = await _glaciers_python.decode_df_with_abi_df(df_pl, abi_df_pl, is_log_type)
     return to_prefered_type(result_pl)
 
-def decode_log_df_with_abi_df(
-    log_df: DataFrameType,
+def decode_df_with_abi_df(
+    df: DataFrameType,
     abi_df: DataFrameType,
+    decoder_type: str,
 ) -> DataFrameType:
     import asyncio
-    coroutine = async_decode_log_df_with_abi_df(log_df, abi_df)
+    coroutine = async_decode_df_with_abi_df(df, abi_df, decoder_type)
 
     try:
         import concurrent.futures

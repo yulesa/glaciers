@@ -2,20 +2,27 @@ import polars as pl
 from ._dataframe_utils import DataFrameType, to_polars, to_prefered_type
 from . import _glaciers_python
 
-async def async_decode_log_df_using_single_contract(
-    log_df: DataFrameType,
+async def async_decode_df_using_single_contract(
+    df: DataFrameType,
     contract_address: str,
+    decoder_type: str,
 ) -> DataFrameType:
-    log_df_pl = to_polars(log_df)
-    result_pl: pl.DataFrame = await _glaciers_python.decode_log_df_using_single_contract(log_df_pl, contract_address)
+    valid_decoder_types = ["log", "trace"]
+    if decoder_type not in valid_decoder_types:
+        raise ValueError(f"Decoder type must be one of {valid_decoder_types}")
+    
+    df_pl = to_polars(df)
+    is_log_type = decoder_type == "log"
+    result_pl: pl.DataFrame = await _glaciers_python.decode_df_using_single_contract(df_pl, contract_address, is_log_type)
     return to_prefered_type(result_pl)
 
-def decode_log_df_using_single_contract(
-    log_df: DataFrameType,
+def decode_df_using_single_contract(
+    df: DataFrameType,
     contract_address: str,
+    decoder_type: str,
 ) -> DataFrameType:
     import asyncio
-    coroutine = async_decode_log_df_using_single_contract(log_df, contract_address)
+    coroutine = async_decode_df_using_single_contract(df, contract_address, decoder_type)
     
     try:
         import concurrent.futures
