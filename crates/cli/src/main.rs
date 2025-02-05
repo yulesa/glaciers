@@ -120,12 +120,11 @@ async fn async_main() -> Result<(), AppError> {
                 return Err(AppError::InvalidInput(format!("Path does not exist: {}", trace_path.display())));
             }
 
-            // if trace_path.is_dir() {
-            //     trace_decoder::decode_trace_folder(trace_path.to_string_lossy().into_owned(), abi_df_path).await?;
-            // } else {
-            //     trace_decoder::decode_trace_file(trace_path, abi_df_path).await?;
-            // }
-            trace_decoder::decode_trace_df(trace_path.to_string_lossy().into_owned(), abi_df_path).await?;
+            if trace_path.is_dir() {
+                trace_decoder::decode_trace_folder(trace_path.to_string_lossy().into_owned(), abi_df_path).await?;
+            } else {
+                trace_decoder::decode_trace_file(trace_path, abi_df_path).await?;
+            }
         }
     }
 
