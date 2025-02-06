@@ -38,7 +38,7 @@ unique_key = ["hash", "full_signature", "address"]
 #   - "hash_address": match logs/traces to ABI signatures using both hash and address, only contracts with ABI in the ABI DB will be matched
 #   - "hash": match logs/traces to ABI signatures by hash, for contracts without ABIs in the ABI DB, the most frequent signature in the ABI DB will be matched
 algorithm = "hash_address"
-# Use hex string encoding for binary columns in the outputing dataframes
+# Use hex string encoding for binary columns in the output dataframes
 output_hex_string_encoding = false
 # output_file_format: format of the output saved file, allowed values = ["csv", "parquet"]
 output_file_format = "parquet"
