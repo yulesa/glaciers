@@ -11,7 +11,7 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/yulesa/glaciers"
 repository = "https://github.com/yulesa/glaciers"
-description = "Glaciers is a rust and python tool to decode raw EVM logs into decoded events."
+description = "Glaciers is a rust and python tool to decode raw EVM logs and traces into decoded events."
 exclude = [".github/"]
 
 [workspace.dependencies]
