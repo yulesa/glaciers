@@ -197,7 +197,7 @@ pub async fn decode_df_with_abi_df(
         },
         DecoderType::Trace => match get_config().decoder.algorithm {
             DecoderAlgorithm::HashAddress => matcher::match_traces_by_4bytes_address(df, abi_df)?,
-            DecoderAlgorithm::Hash => matcher::match_traces_by_4bytes_address(df, abi_df)?
+            DecoderAlgorithm::Hash => matcher::match_traces_by_4bytes(df, abi_df)?
         }
     };
 

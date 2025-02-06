@@ -167,13 +167,11 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
             unnesting_hex_string_encoding: false,
         },
         main: MainConfig {
-            // TODO: change this to the correct path
             events_abi_db_file_path: String::from("ABIs/ethereum__events__abis.parquet"),
             functions_abi_db_file_path: String::from("ABIs/ethereum__functions__abis.parquet"),
             abi_folder_path: String::from("ABIs/abi_database"),
             raw_logs_folder_path: String::from("data/logs"),
-            // TODO: change this to the correct path
-            raw_traces_folder_path: String::from("data/traces/ethereum__traces__blocks__21_000_000_to_21_000_010.parquet"),
+            raw_traces_folder_path: String::from("data/traces"),
         },
         abi_reader: AbiReaderConfig {
             output_hex_string_encoding: false,
@@ -210,7 +208,6 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
         trace_decoder: TraceDecoderConfig {
             trace_schema: TraceSchemaConfig {
                 trace_alias: TraceAliasConfig {
-                    // TODO: change this to the correct alias
                     selector: String::from("selector"),
                     action_input: String::from("action_input"),
                     result_output: String::from("result_output"),
