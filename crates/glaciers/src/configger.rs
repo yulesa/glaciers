@@ -320,6 +320,13 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
                 }
             },
             (Some("output_hex_string_encoding"), ConfigValue::Boolean(v)) => config.decoder.output_hex_string_encoding = v,
+            (Some("output_hex_string_encoding"), ConfigValue::Number(v)) => {
+                match v {
+                    1 => config.abi_reader.output_hex_string_encoding = true,
+                    0 => config.abi_reader.output_hex_string_encoding = false,
+                    _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
+                }
+            },
             (Some("output_file_format"), ConfigValue::String(v)) => {
                 let v = v.to_lowercase();
                 validate_output_file_format(&v)?;
