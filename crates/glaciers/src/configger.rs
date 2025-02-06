@@ -41,7 +41,8 @@ pub enum PreferedDataframeType {
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct MainConfig {
-    pub abi_df_file_path: String,
+    pub events_abi_db_file_path: String,
+    pub functions_abi_db_file_path: String,
     pub abi_folder_path: String,
     pub raw_logs_folder_path: String,
     pub raw_traces_folder_path: String,
@@ -167,7 +168,8 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
         },
         main: MainConfig {
             // TODO: change this to the correct path
-            abi_df_file_path: String::from("ABIs/ethereum__functions__abis.parquet"),
+            events_abi_db_file_path: String::from("ABIs/ethereum__events__abis.parquet"),
+            functions_abi_db_file_path: String::from("ABIs/ethereum__functions__abis.parquet"),
             abi_folder_path: String::from("ABIs/abi_database"),
             raw_logs_folder_path: String::from("data/logs"),
             // TODO: change this to the correct path
@@ -282,7 +284,8 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
             _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
         },
         "main" => match (field, value) {
-            (Some("abi_df_file_path"), ConfigValue::String(v)) => config.main.abi_df_file_path = v,
+            (Some("events_abi_db_file_path"), ConfigValue::String(v)) => config.main.events_abi_db_file_path = v,
+            (Some("functions_abi_db_file_path"), ConfigValue::String(v)) => config.main.functions_abi_db_file_path = v,
             (Some("abi_folder_path"), ConfigValue::String(v)) => config.main.abi_folder_path = v,
             (Some("raw_logs_folder_path"), ConfigValue::String(v)) => config.main.raw_logs_folder_path = v,
             (Some("raw_traces_folder_path"), ConfigValue::String(v)) => config.main.raw_traces_folder_path = v,

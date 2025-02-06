@@ -35,26 +35,32 @@ struct Cli {
 enum Commands {
     /// Read ABI file or folder, or update an existing ABI database
     Abi {
-        /// Path to ABI database file (or the path to create a new file). Optional, default: config file
-        abi_df_path: Option<String>,
+        /// Path to ABI database file (or the path to create a new file). Optional, default: events_abi_db_file_path in config file
+        #[arg(short='d', long = "db")]
+        abi_db_path: Option<String>,
         /// Path to ABI file or folder. Optional, default: config file
+        #[arg(short, long="abi")]
         abi_path: Option<String>
     },
     
     /// Decode Ethereum logs
     DecodeLogs {
-        /// Path to log file or folder to decode. Optional, default: config file
+        /// Path to log file or folder to decode. Optional, default: raw_logs_folder_path in config file
+        #[arg(short, long="log")]
         log_path: Option<String>,
-        /// Path to ABI database file. Optional, default: config file
-        abi_df_path: Option<String>
+        /// Path to ABI database file. Optional, default: events_abi_db_file_path in config file
+        #[arg(short, long="db")]
+        abi_db_path: Option<String>
     },
 
     /// Decode Ethereum traces
     DecodeTraces {
-        /// Path to trace file or folder to decode. Optional, default: config file
+        /// Path to trace file or folder to decode. Optional, default: raw_traces_folder_path in config file
+        #[arg(short, long="trace")]
         trace_path: Option<String>,
-        /// Path to ABI database file. Optional, default: config file
-        abi_df_path: Option<String>
+        /// Path to ABI database file. Optional, default: functions_abi_db_file_path in config file
+        #[arg(short, long="db")]
+        abi_db_path: Option<String>
     },
 }
 
@@ -85,16 +91,16 @@ async fn async_main() -> Result<(), AppError> {
     }
 
     match cli.command {
-        Commands::Abi { abi_df_path, abi_path } => {
-            let abi_df_path = abi_df_path.unwrap_or_else(|| configger::get_config().main.abi_df_file_path);
+        Commands::Abi { abi_db_path, abi_path } => {
+            let abi_db_path = abi_db_path.unwrap_or_else(|| configger::get_config().main.events_abi_db_file_path);
             let abi_path = abi_path.unwrap_or_else(|| configger::get_config().main.abi_folder_path);
 
-            abi_reader::update_abi_df(abi_df_path, abi_path)?;
+            abi_reader::update_abi_df(abi_db_path, abi_path)?;
         },
         
-        Commands::DecodeLogs { log_path, abi_df_path } => {
+        Commands::DecodeLogs { log_path, abi_db_path } => {
             let log_path = log_path.unwrap_or_else(|| configger::get_config().main.raw_logs_folder_path);
-            let abi_df_path = abi_df_path.unwrap_or_else(|| configger::get_config().main.abi_df_file_path);
+            let abi_db_path = abi_db_path.unwrap_or_else(|| configger::get_config().main.events_abi_db_file_path);
 
             let log_path = PathBuf::from(log_path);
 
@@ -103,15 +109,15 @@ async fn async_main() -> Result<(), AppError> {
             }
 
             if log_path.is_dir() {
-                decoder::decode_folder(log_path.to_string_lossy().into_owned(), abi_df_path, DecoderType::Log).await?;
+                decoder::decode_folder(log_path.to_string_lossy().into_owned(), abi_db_path, DecoderType::Log).await?;
             } else {
-                decoder::decode_file(log_path, abi_df_path, DecoderType::Log).await?;
+                decoder::decode_file(log_path, abi_db_path, DecoderType::Log).await?;
             }
         }
 
-        Commands::DecodeTraces { trace_path, abi_df_path } => {
+        Commands::DecodeTraces { trace_path, abi_db_path } => {
             let trace_path = trace_path.unwrap_or_else(|| configger::get_config().main.raw_traces_folder_path);
-            let abi_df_path = abi_df_path.unwrap_or_else(|| configger::get_config().main.abi_df_file_path);
+            let abi_db_path = abi_db_path.unwrap_or_else(|| configger::get_config().main.functions_abi_db_file_path);
             
             let trace_path = PathBuf::from(trace_path);
 
@@ -120,9 +126,9 @@ async fn async_main() -> Result<(), AppError> {
             }
 
             if trace_path.is_dir() {
-                decoder::decode_folder(trace_path.to_string_lossy().into_owned(), abi_df_path, DecoderType::Trace).await?;
+                decoder::decode_folder(trace_path.to_string_lossy().into_owned(), abi_db_path, DecoderType::Trace).await?;
             } else {
-                decoder::decode_file(trace_path, abi_df_path, DecoderType::Trace).await?;
+                decoder::decode_file(trace_path, abi_db_path, DecoderType::Trace).await?;
             }
         }
     }
