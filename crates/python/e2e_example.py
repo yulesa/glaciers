@@ -25,14 +25,14 @@ logs_folder_path = project_dir+config['main']['raw_logs_folder_path']
 traces_folder_path = project_dir+config['main']['raw_traces_folder_path']
 
 
-######## Test update_abi_df ########
+######## Test update_abi_db ########
 # Reads ABIs in a folder and append to the abi parquet file
 #
 # This function loads each ABI definitions from a ABI folder and append the new itens (events and functions, according to the configs)
 # into an existing abi DF (parquet file) the new unique entries. Function also output the dataframe.
 #
 # # Arguments
-# - `abi_file_path`: Optional, default in config. Path to the parquet file containing the existing DataFrame.
+# - `abi_db_path`: Optional, default in config. Path to the parquet file containing the existing DataFrame.
 # - `abi_folder_path`: Optional, default in config. Path to the folder containing ABI JSON files
 #
 # # Returns
@@ -40,7 +40,7 @@ traces_folder_path = project_dir+config['main']['raw_traces_folder_path']
 #
 # # Errors
 # Returns a `PyValueError` if there are issues reading or processing the ABIs
-abis_df = gl.update_abi_df(abi_df_path=events_abi_file_path, abi_folder_path=abi_folder_path)
+abis_df = gl.update_abi_db(abi_db_path=events_abi_file_path, abi_folder_path=abi_folder_path)
 print(f"\nFirst 5 rows of updatedABIs DataFrame:\n{abis_df.head()}\n\n")
 
 
@@ -138,7 +138,7 @@ with open(abi_file, 'r') as f:
 #
 # # Arguments
 # - `decoder_type`: Type of the decoder to use, allowed values = ["log", "trace"]
-# - `abi_df_path`: Optional, default in config. Path to the abi parquet file
+# - `abi_db_path`: Optional, default in config. Path to the abi parquet file
 # - `folder_path`: Optional, default in config. Path to the folder containing the logs/traces files
 #
 # # Returns
@@ -146,7 +146,7 @@ with open(abi_file, 'r') as f:
 #
 # # Errors
 # Returns a `PyValueError` if there are issues processing the logs
-gl.decode_folder(decoder_type="log", abi_df_path=events_abi_file_path, folder_path=logs_folder_path)
+gl.decode_folder(decoder_type="log", abi_db_path=events_abi_file_path, folder_path=logs_folder_path)
 print(f"\n Decoded logs saved in the decoded folder.\n\n")
 
 
@@ -159,12 +159,12 @@ print(f"\n Decoded logs saved in the decoded folder.\n\n")
 # # Arguments
 # - `decoder_type`: Type of the decoder to use, allowed values = ["log", "trace"]
 # - `file_path`: Optional, default in config. Path to the log/trace file
-# - `abi_df_path`: Optional, default in config. Path to the abi parquet file
+# - `abi_db_path`: Optional, default in config. Path to the abi parquet file
 #
 # # Returns
 # A `PyResult` containing a decoded logs/traces DataFrame or an error
 trace_file = os.path.join(traces_folder_path, os.listdir(traces_folder_path)[0])  # Get first trace file
-decoded_df = gl.decode_file(decoder_type="trace", file_path=trace_file, abi_df_path=functions_abi_file_path)
+decoded_df = gl.decode_file(decoder_type="trace", file_path=trace_file, abi_db_path=functions_abi_file_path)
 print(f"\nDecoded Traces in the trace file {trace_file}:\n{decoded_df.head()}\n\n")
 
 
@@ -177,7 +177,7 @@ print(f"\nDecoded Traces in the trace file {trace_file}:\n{decoded_df.head()}\n\
 # # Arguments
 # - `df`: A DataFrame containing raw blockchain logs/traces
 # - `decoder_type`: Type of the decoder to use, allowed values = ["log", "trace"]
-# - `abi_df_path`: Optional, default in config. Path to the abi parquet file
+# - `abi_db_path`: Optional, default in config. Path to the abi parquet file
 #
 # # Returns
 # A `PyResult` containing a decoded logs/traces DataFrame or an error
@@ -187,7 +187,7 @@ print(f"\nDecoded Traces in the trace file {trace_file}:\n{decoded_df.head()}\n\
 
 logs_df_path = os.path.join(logs_folder_path, os.listdir(logs_folder_path)[0])  # Get first logs file
 logs_df = pl.read_parquet(logs_df_path)
-decoded_df = gl.decode_df(df=logs_df, decoder_type="log", abi_df_path=events_abi_file_path)
+decoded_df = gl.decode_df(df=logs_df, decoder_type="log", abi_db_path=events_abi_file_path)
 print(f"\nDecoded Logs DataFrame:\n{decoded_df.head()}\n\n")
 
 

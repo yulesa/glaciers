@@ -95,7 +95,7 @@ async fn async_main() -> Result<(), AppError> {
             let abi_db_path = abi_db_path.unwrap_or_else(|| configger::get_config().main.events_abi_db_file_path);
             let abi_path = abi_path.unwrap_or_else(|| configger::get_config().main.abi_folder_path);
 
-            abi_reader::update_abi_df(abi_db_path, abi_path)?;
+            abi_reader::update_abi_db(abi_db_path, abi_path)?;
         },
         
         Commands::DecodeLogs { log_path, abi_db_path } => {

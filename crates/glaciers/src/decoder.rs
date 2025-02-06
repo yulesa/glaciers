@@ -44,7 +44,7 @@ pub enum DecoderType {
 
 pub async fn decode_folder(
     folder_path: String,
-    abi_df_path: String,
+    abi_db_path: String,
     decoder_type: DecoderType,
 ) -> Result<(), DecoderError> {
 
@@ -66,14 +66,14 @@ pub async fn decode_folder(
             continue
         }
         // Clone the DataFrame and semafore for each task
-        let abi_df_path = abi_df_path.clone();
+        let abi_db_path = abi_db_path.clone();
         let semaphore = semaphore.clone();
         let decoder_type_clone = decoder_type.clone();
         // Spawn a tokio task for each file
         let handle = task::spawn(async move {
             // Acquire a permit before processing
             let _permit = semaphore.acquire().await.unwrap();
-            decode_file(file_path, abi_df_path, decoder_type_clone).await
+            decode_file(file_path, abi_db_path, decoder_type_clone).await
         });
 
         handles.push(handle);
@@ -94,7 +94,7 @@ pub async fn decode_folder(
 
 pub async fn decode_file(
     file_path: PathBuf,
-    abi_df_path: String,
+    abi_db_path: String,
     decoder_type: DecoderType,
 ) -> Result<DataFrame, DecoderError> {
     let file_path_str = file_path.to_string_lossy().into_owned();
@@ -143,7 +143,7 @@ pub async fn decode_file(
 
     let file_df = utils::read_df_file(&file_path)?;
     let file_df = utils::hex_string_columns_to_binary(file_df, &decoder_type)?;
-    let mut decoded_df = decode_df(file_df, abi_df_path, decoder_type).await?;
+    let mut decoded_df = decode_df(file_df, abi_db_path, decoder_type).await?;
 
     println!(
         "[{}] Finished decoding file: {}",
@@ -172,11 +172,11 @@ pub async fn decode_file(
 
 pub async fn decode_df (
     df: DataFrame,
-    abi_df_path: String,
+    abi_db_path: String,
     decoder_type: DecoderType,
 ) -> Result<DataFrame, DecoderError> {
-    let abi_df_path = Path::new(&abi_df_path);
-    let abi_df = utils::read_df_file(&abi_df_path)?;
+    let abi_db_path = Path::new(&abi_db_path);
+    let abi_df = utils::read_df_file(&abi_db_path)?;
 
     decode_df_with_abi_df(df, abi_df, decoder_type).await
 }

@@ -2,7 +2,7 @@
 from ._glaciers_python import get_config
 from ._glaciers_python import set_config
 from ._glaciers_python import set_config_toml
-from ._abi_reader import update_abi_df
+from ._abi_reader import update_abi_db
 from ._abi_reader import read_new_abi_folder
 from ._abi_reader import read_new_abi_file
 from ._abi_reader import read_new_abi_json
@@ -19,7 +19,7 @@ from ._unnest import unnest_event
 
 
 __all__ = [
-    'update_abi_df',
+    'update_abi_db',
     'read_new_abi_folder',
     'read_new_abi_file',
     'read_new_abi_json',
