@@ -76,10 +76,10 @@ Glaciers divide the decoding process into two key steps:
     After the join, each row is decoded using a User Defined Function (UDF), producing decoded columns that are added to the schema. Glaciers offers functions to decode multiple files in a folder, single files translated to dataframes.
 
     Available functions:
-    - `decode_log_folder(log_folder_path, abi_db_path)`
-    - `decode_log_file(log_file_path, abi_db_path)`
-    - `decode_log_df(logs_df, abi_db_path)`
-    - `decode_log_df_with_abi_df(logs_df, abi_df)`
+    - `decode_folder(log_folder_path, abi_db_path, decoder_type)`
+    - `decode_file(log_file_path, abi_db_path, decoder_type)`
+    - `decode_df(logs_df, abi_db_path, decoder_type)`
+    - `decode_df_with_abi_df(logs_df, abi_df, decoder_type)`
 
 - You can change the system configurations:
 
@@ -88,7 +88,7 @@ Glaciers divide the decoding process into two key steps:
     - `set_config(config_key, config_value)`
     - `get_config()`
 
-- You also have a shortcut function to decode logs from a single contract (`decode_df_using_single_contract(log_df, contract_address)`). This function will download the ABI from Sourcify and decode the logs. Nevertheless, we recommend following the normal flow and creating the ABI DB first.
+- You also have a shortcut function to decode logs from a single contract (`decode_df_using_single_contract(log_df, contract_address, decoder_type)`). This function will download the ABI from Sourcify and decode the logs. Nevertheless, we recommend following the normal flow and creating the ABI DB first.
 
 - There is also a helper function to unnest an unique event from a decoded logs' DataFrame: `unnest_event(decoded_logs_df, full_signature=None, event_name=None, event_address=None, topic0=None)`. It will only work if the full_signature is unique after filtering the logs_df using the optional arguments (full_signature, event_name, event_address, topic0). It's only available in Python.
 
