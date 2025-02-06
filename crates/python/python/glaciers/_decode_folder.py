@@ -6,7 +6,7 @@ from glaciers import get_config
 async def async_decode_folder(
     decoder_type: str,
     folder_path = None,   
-    abi_df_path = None,
+    abi_db_path = None,
 ) -> DataFrameType:
     valid_decoder_types = ["log", "trace"]
     if decoder_type not in valid_decoder_types:
@@ -19,19 +19,19 @@ async def async_decode_folder(
         elif decoder_type == "trace":
             folder_path = toml.loads(get_config())["main"]["raw_traces_folder_path"]
     
-    if abi_df_path is None:
+    if abi_db_path is None:
         if decoder_type == "log":
-            abi_df_path = toml.loads(get_config())["main"]["events_abi_db_file_path"]
+            abi_db_path = toml.loads(get_config())["main"]["events_abi_db_file_path"]
         elif decoder_type == "trace":
-            abi_df_path = toml.loads(get_config())["main"]["functions_abi_db_file_path"]
+            abi_db_path = toml.loads(get_config())["main"]["functions_abi_db_file_path"]
 
-    result: pl.DataFrame = await _glaciers_python.decode_folder(decoder_type, folder_path, abi_df_path)
+    result: pl.DataFrame = await _glaciers_python.decode_folder(decoder_type, folder_path, abi_db_path)
     return to_prefered_type(result)
 
 def decode_folder(
     decoder_type: str,
     folder_path = None,   
-    abi_df_path = None,
+    abi_db_path = None,
 ) -> DataFrameType:
     valid_decoder_types = ["log", "trace"]
     if decoder_type not in valid_decoder_types:
@@ -43,14 +43,14 @@ def decode_folder(
         elif decoder_type == "trace":
             folder_path = toml.loads(get_config())["main"]["raw_traces_folder_path"]
 
-    if abi_df_path is None:
+    if abi_db_path is None:
         if decoder_type == "log":
-            abi_df_path = toml.loads(get_config())["main"]["events_abi_db_file_path"]
+            abi_db_path = toml.loads(get_config())["main"]["events_abi_db_file_path"]
         elif decoder_type == "trace":
-            abi_df_path = toml.loads(get_config())["main"]["functions_abi_db_file_path"]
+            abi_db_path = toml.loads(get_config())["main"]["functions_abi_db_file_path"]
 
     import asyncio
-    coroutine = async_decode_folder(decoder_type, folder_path, abi_df_path)
+    coroutine = async_decode_folder(decoder_type, folder_path, abi_db_path)
 
     try:
         import concurrent.futures

@@ -7,36 +7,36 @@ from glaciers import get_config
 async def async_decode_df(
     decoder_type: str,
     df: DataFrameType,
-    abi_df_path = None,
+    abi_db_path = None,
 ) -> DataFrameType:
     valid_decoder_types = ["log", "trace"]
     if decoder_type not in valid_decoder_types:
         raise ValueError(f"Decoder type must be one of {valid_decoder_types}")
     
-    if abi_df_path is None:
+    if abi_db_path is None:
         if decoder_type == "log":
-            abi_df_path = toml.loads(get_config())["main"]["events_abi_db_file_path"]
+            abi_db_path = toml.loads(get_config())["main"]["events_abi_db_file_path"]
         elif decoder_type == "trace":
-            abi_df_path = toml.loads(get_config())["main"]["functions_abi_db_file_path"]
+            abi_db_path = toml.loads(get_config())["main"]["functions_abi_db_file_path"]
 
     df_pl = to_polars(df)
-    result: pl.DataFrame = await _glaciers_python.decode_df(decoder_type, df_pl, abi_df_path)
+    result: pl.DataFrame = await _glaciers_python.decode_df(decoder_type, df_pl, abi_db_path)
     return to_prefered_type(result)
 
 def decode_df(
     decoder_type: str,
     df: DataFrameType,
-    abi_df_path = None,
+    abi_db_path = None,
 ) -> DataFrameType:
     
-    if abi_df_path is None:
+    if abi_db_path is None:
         if decoder_type == "log":
-            abi_df_path = toml.loads(get_config())["main"]["events_abi_db_file_path"]
+            abi_db_path = toml.loads(get_config())["main"]["events_abi_db_file_path"]
         elif decoder_type == "trace":
-            abi_df_path = toml.loads(get_config())["main"]["functions_abi_db_file_path"]
+            abi_db_path = toml.loads(get_config())["main"]["functions_abi_db_file_path"]
 
     import asyncio
-    coroutine = async_decode_df(decoder_type, df, abi_df_path)
+    coroutine = async_decode_df(decoder_type, df, abi_db_path)
 
     try:
         import concurrent.futures

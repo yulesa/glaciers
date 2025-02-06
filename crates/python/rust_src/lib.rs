@@ -18,7 +18,7 @@ fn glaciers_python(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_config, m)?)?;
     m.add_function(wrap_pyfunction!(set_config, m)?)?;
     m.add_function(wrap_pyfunction!(set_config_toml, m)?)?;
-    m.add_function(wrap_pyfunction!(update_abi_df, m)?)?;
+    m.add_function(wrap_pyfunction!(update_abi_db, m)?)?;
     m.add_function(wrap_pyfunction!(read_new_abi_folder, m)?)?;
     m.add_function(wrap_pyfunction!(read_new_abi_file, m)?)?;
     m.add_function(wrap_pyfunction!(read_new_abi_json, m)?)?;
@@ -41,7 +41,7 @@ pub fn get_config() -> PyResult<String> {
 /// Set the current GLACIERS_CONFIG using field and value
 /// 
 /// # Arguments
-/// - `field`: The field to set (in the format "section.field", e.g. "main.abi_df_file_path")
+/// - `field`: The field to set (in the format "section.field", e.g. "main.events_abi_db_file_path")
 /// - `value`: The value to set the field to
 ///
 /// # Returns
@@ -78,7 +78,7 @@ pub fn set_config_toml(path: String) -> PyResult<()> {
 /// into an existing DataFrame (parquet file) of unique entries.
 ///
 /// # Arguments
-/// - `abi_df_path`: Path to the parquet file containing the existing DataFrame.
+/// - `abi_db_path`: Path to the parquet file containing the existing DataFrame.
 /// - `abi_folder_path`: Path to the folder containing ABI JSON files
 ///
 /// # Returns
@@ -88,8 +88,8 @@ pub fn set_config_toml(path: String) -> PyResult<()> {
 /// Returns a `PyValueError` if there are issues reading or processing the ABIs
 
 #[pyfunction]
-pub fn update_abi_df(abi_df_path: String, abi_folder_path: String) -> PyResult<PyDataFrame> {
-    abi_reader::update_abi_df(abi_df_path, abi_folder_path)
+pub fn update_abi_db(abi_db_path: String, abi_folder_path: String) -> PyResult<PyDataFrame> {
+    abi_reader::update_abi_db(abi_db_path, abi_folder_path)
         .map_err(|e| PyValueError::new_err(format!("Error reading ABIs: {}", e)))
         .map(|df| PyDataFrame(df))
 }
@@ -166,8 +166,9 @@ pub fn read_new_abi_json(abi: String, address: String) -> PyResult<PyDataFrame> 
 /// to a decoded logs/traces' parquet files
 ///
 /// # Arguments
+/// - `decoder_type`: Type of the decoder to use, allowed values = ["log", "trace"]
 /// - `folder_path`: Path to a folder containing the logs/traces parquet files
-/// - `abi_df_path`: Path to the abi file containing the topic0 and event signatures
+/// - `abi_db_path`: Path to the abi file containing the topic0 and event signatures
 ///
 /// # Returns
 /// No Return
@@ -175,14 +176,14 @@ pub fn read_new_abi_json(abi: String, address: String) -> PyResult<PyDataFrame> 
 /// # Errors
 /// Returns a `PyValueError` if there are issues processing the logs
 #[pyfunction]
-pub fn decode_folder(py: Python<'_>, decoder_type: String, folder_path: String, abi_df_path: String) -> PyResult<&PyAny> {
+pub fn decode_folder(py: Python<'_>, decoder_type: String, folder_path: String, abi_db_path: String) -> PyResult<&PyAny> {
     let decoder_type = match decoder_type.as_str() {
         "log" => DecoderType::Log,
         "trace" => DecoderType::Trace,
         _ => return Err(PyValueError::new_err("Invalid decoder type")),
     };
     pyo3_asyncio::tokio::future_into_py(py, async move {
-        decoder::decode_folder(folder_path, abi_df_path, decoder_type).await
+        decoder::decode_folder(folder_path, abi_db_path, decoder_type).await
         .map_err(|e| PyValueError::new_err(format!("Decoding error: {}", e)))
     })
 }
@@ -193,8 +194,9 @@ pub fn decode_folder(py: Python<'_>, decoder_type: String, folder_path: String, 
 /// to a decoded logs/traces' DataFrame.
 ///
 /// # Arguments
+/// - `decoder_type`: Type of the decoder to use, allowed values = ["log", "trace"]
 /// - `file_path`: Path to the log/trace file
-/// - `abi_df_path`: Path to the abi file containing the topic0 and event signatures
+/// - `abi_db_path`: Path to the abi file containing the topic0 and event signatures
 ///
 /// # Returns
 /// A `PyResult` containing a decoded logs' `PyDataFrame` or an error
@@ -202,7 +204,7 @@ pub fn decode_folder(py: Python<'_>, decoder_type: String, folder_path: String, 
 /// # Errors
 /// Returns a `PyValueError` if there are issues processing the logs
 #[pyfunction]
-pub fn decode_file(py: Python<'_>, decoder_type: String, file_path: String, abi_df_path: String) -> PyResult<&PyAny> {
+pub fn decode_file(py: Python<'_>, decoder_type: String, file_path: String, abi_db_path: String) -> PyResult<&PyAny> {
     let decoder_type = match decoder_type.as_str() {
         "log" => DecoderType::Log,
         "trace" => DecoderType::Trace,
@@ -210,7 +212,7 @@ pub fn decode_file(py: Python<'_>, decoder_type: String, file_path: String, abi_
     };
     let file_path = PathBuf::from(file_path);
     let result = pyo3_asyncio::tokio::future_into_py(py, async move {
-        match decoder::decode_file(file_path, abi_df_path, decoder_type).await {
+        match decoder::decode_file(file_path, abi_db_path, decoder_type).await {
             Ok(df) => Ok(PyDataFrame(df)),
             Err(e) => Err(PyValueError::new_err(format!("Decoding error: {}", e))),
         }
@@ -224,8 +226,9 @@ pub fn decode_file(py: Python<'_>, decoder_type: String, file_path: String, abi_
 /// to a decoded logs/traces' DataFrame.
 ///
 /// # Arguments
+/// - `decoder_type`: Type of the decoder to use, allowed values = ["log", "trace"]
 /// - `df`: A DataFrame containing raw blockchain logs/traces
-/// - `abi_df_path`: Path to the abi file containing the topic0 and event signatures
+/// - `abi_db_path`: Path to the abi file containing the topic0 and event signatures
 ///
 /// # Returns
 /// A `PyResult` containing a decoded logs/traces' `PyDataFrame` or an error
@@ -233,7 +236,7 @@ pub fn decode_file(py: Python<'_>, decoder_type: String, file_path: String, abi_
 /// # Errors
 /// Returns a `PyValueError` if there are issues processing the logs
 #[pyfunction]
-pub fn decode_df(py: Python<'_>, decoder_type: String, df: PyDataFrame, abi_df_path: String) -> PyResult<&PyAny> {
+pub fn decode_df(py: Python<'_>, decoder_type: String, df: PyDataFrame, abi_db_path: String) -> PyResult<&PyAny> {
     let decoder_type = match decoder_type.as_str() {
         "log" => DecoderType::Log,
         "trace" => DecoderType::Trace,
@@ -241,8 +244,8 @@ pub fn decode_df(py: Python<'_>, decoder_type: String, df: PyDataFrame, abi_df_p
     };
     // Convert PyDataFrame to native polars DataFrame
     let df:DataFrame = df.into();
-    let result = pyo3_asyncio::tokio::future_into_py(py, async move {
-        match decoder::decode_df(df, abi_df_path, decoder_type).await {
+        let result = pyo3_asyncio::tokio::future_into_py(py, async move {
+            match decoder::decode_df(df, abi_db_path, decoder_type).await {
             Ok(df) => Ok(PyDataFrame(df)),
             Err(e) => Err(PyValueError::new_err(format!("Decoding error: {}", e))),
         }
@@ -256,6 +259,7 @@ pub fn decode_df(py: Python<'_>, decoder_type: String, df: PyDataFrame, abi_df_p
 /// to a decoded logs/traces' DataFrame.
 ///
 /// # Arguments
+/// - `decoder_type`: Type of the decoder to use, allowed values = ["log", "trace"]
 /// - `df`: A DataFrame containing raw blockchain logs/traces
 /// - `abi_df`: A DataFrame containing:
 ///         - topic0: The topic0 (event signature hash) as bytes
@@ -291,6 +295,7 @@ pub fn decode_df_with_abi_df(py: Python<'_>, decoder_type: String, df: PyDataFra
 /// and decode it to a decoded logs/traces' DataFrame.
 ///
 /// # Arguments
+/// - `decoder_type`: Type of the decoder to use, allowed values = ["log", "trace"]
 /// - `df`: A DataFrame containing raw blockchain logs/traces
 /// - `contract_address`: The contract address as a hex string
 ///

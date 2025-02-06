@@ -35,8 +35,8 @@ unique_key = ["hash", "full_signature", "address"]
 
 [decoder]
 # algorithm: algorithm to use for matching logs/traces to ABI signatures, allowed values = 
-#   - "hash_address": match logs/traces to ABI signatures using both hash and address, only contracts with ABI in the abi_df will be matched
-#   - "hash": match logs/traces to ABI signatures by hash, for contracts without ABIs in the abi_df, the most frequent signature in the abi_df will be matched
+#   - "hash_address": match logs/traces to ABI signatures using both hash and address, only contracts with ABI in the ABI DB will be matched
+#   - "hash": match logs/traces to ABI signatures by hash, for contracts without ABIs in the ABI DB, the most frequent signature in the ABI DB will be matched
 algorithm = "hash_address"
 # Use hex string encoding for binary columns in the outputing dataframes
 output_hex_string_encoding = false
