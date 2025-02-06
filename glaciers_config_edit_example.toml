@@ -12,8 +12,11 @@ unnesting_hex_string_encoding = false
 
 # configuration for the CLI main component
 [main]
-# Path to the file containing the ABI (Application Binary Interface) signatures, it can be a csv or parquet file.
-abi_df_file_path = "ABIs/ethereum__events__abis.parquet"
+# If using a ABI database with both events and functions, set the following paths to the same file.
+# Path to the file containing the events ABI (Application Binary Interface) signatures, it can be a csv or parquet file.
+events_abi_db_file_path = "ABIs/ethereum__events__abis.parquet"
+# Path to the file containing the functions ABI (Application Binary Interface) signatures, it can be a csv or parquet file.
+functions_abi_db_file_path = "ABIs/ethereum__functions__abis.parquet"
 # Directory containing individual ABI JSON files to be read
 abi_folder_path = "ABIs/abi_database"
 # Directory where raw blockchain logs are stored

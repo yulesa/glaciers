@@ -5,27 +5,24 @@ import glaciers as gl
 import toml
 from io import StringIO
 
-LOGS_FILE_NAME = "ethereum__logs__blocks__18426253_to_18426303_example.parquet"
-
+# Get the project directory
 python_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir =  dirname(dirname(python_dir))+"/"
 print(f"Project dir: {project_dir}")
 
+# Set and get the configs
 gl.set_config("decoder.decoded_chunk_size", 500_000)
 gl.set_config_toml(project_dir+"glaciers_config_edit_example.toml")
 config = gl.get_config()
 print(f"Glaciers config:\n{config}")
 config = toml.load(StringIO(config))
 
-abi_file_path = project_dir+config['main']['abi_df_file_path']
+# Instantiate the paths to the files and folders
+events_abi_file_path = project_dir+config['main']['events_abi_db_file_path']
+functions_abi_file_path = project_dir+config['main']['functions_abi_db_file_path']
 abi_folder_path = project_dir+config['main']['abi_folder_path']
 logs_folder_path = project_dir+config['main']['raw_logs_folder_path']
 traces_folder_path = project_dir+config['main']['raw_traces_folder_path']
-
-logs_df = pl.read_parquet(f"{logs_folder_path}/{LOGS_FILE_NAME}")
-print(f"Raw logs file: \n{logs_df.head()}\n\n")
-
-
 
 
 ######## Test update_abi_df ########
@@ -43,7 +40,7 @@ print(f"Raw logs file: \n{logs_df.head()}\n\n")
 #
 # # Errors
 # Returns a `PyValueError` if there are issues reading or processing the ABIs
-abis_df = gl.update_abi_df(abi_df_path=abi_file_path, abi_folder_path=abi_folder_path)
+abis_df = gl.update_abi_df(abi_df_path=events_abi_file_path, abi_folder_path=abi_folder_path)
 print(f"\nFirst 5 rows of updatedABIs DataFrame:\n{abis_df.head()}\n\n")
 
 
@@ -149,7 +146,7 @@ with open(abi_file, 'r') as f:
 #
 # # Errors
 # Returns a `PyValueError` if there are issues processing the logs
-gl.decode_folder(decoder_type="log", abi_df_path=abi_file_path, folder_path=logs_folder_path)
+gl.decode_folder(decoder_type="log", abi_df_path=events_abi_file_path, folder_path=logs_folder_path)
 print(f"\n Decoded logs saved in the decoded folder.\n\n")
 
 
@@ -167,7 +164,7 @@ print(f"\n Decoded logs saved in the decoded folder.\n\n")
 # # Returns
 # A `PyResult` containing a decoded logs/traces DataFrame or an error
 trace_file = os.path.join(traces_folder_path, os.listdir(traces_folder_path)[0])  # Get first trace file
-decoded_df = gl.decode_file(decoder_type="trace", file_path=trace_file, abi_df_path=abi_file_path)
+decoded_df = gl.decode_file(decoder_type="trace", file_path=trace_file, abi_df_path=functions_abi_file_path)
 print(f"\nDecoded Traces in the trace file {trace_file}:\n{decoded_df.head()}\n\n")
 
 
@@ -187,8 +184,10 @@ print(f"\nDecoded Traces in the trace file {trace_file}:\n{decoded_df.head()}\n\
 #
 # # Errors
 # Returns a `PyValueError` if there are issues processing the logs
-logs_df = pl.read_parquet(f"{logs_folder_path}/{LOGS_FILE_NAME}")
-decoded_df = gl.decode_df(df=logs_df, decoder_type="log", abi_df_path=abi_file_path)
+
+logs_df_path = os.path.join(logs_folder_path, os.listdir(logs_folder_path)[0])  # Get first logs file
+logs_df = pl.read_parquet(logs_df_path)
+decoded_df = gl.decode_df(df=logs_df, decoder_type="log", abi_df_path=events_abi_file_path)
 print(f"\nDecoded Logs DataFrame:\n{decoded_df.head()}\n\n")
 
 
@@ -205,8 +204,9 @@ print(f"\nDecoded Logs DataFrame:\n{decoded_df.head()}\n\n")
 #
 # # Returns
 # A `PyResult` containing a decoded logs/traces DataFrame or an error
-logs_df = pl.read_parquet(f"{logs_folder_path}/{LOGS_FILE_NAME}")
-abi_df = pl.read_parquet(abi_file_path)
+logs_df_path = os.path.join(logs_folder_path, os.listdir(logs_folder_path)[0])  # Get first logs file
+logs_df = pl.read_parquet(logs_df_path)
+abi_df = pl.read_parquet(events_abi_file_path)
 decoded_df = gl.decode_df_with_abi_df(df=logs_df, abi_df=abi_df, decoder_type="log")
 print(f"\nDecoded Logs using ABI DataFrame:\n{decoded_df.head()}\n\n")
 
