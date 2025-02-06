@@ -3,9 +3,9 @@ from ._dataframe_utils import DataFrameType, to_polars, to_prefered_type
 from . import _glaciers_python
 
 async def async_decode_df_with_abi_df(
+    decoder_type: str,  
     df: DataFrameType,
     abi_df: DataFrameType,
-    decoder_type: str,  
 ) -> DataFrameType:
     valid_decoder_types = ["log", "trace"]
     if decoder_type not in valid_decoder_types:
@@ -13,17 +13,16 @@ async def async_decode_df_with_abi_df(
     
     df_pl = to_polars(df)
     abi_df_pl = to_polars(abi_df)   
-    is_log_type = decoder_type == "log"
-    result_pl: pl.DataFrame = await _glaciers_python.decode_df_with_abi_df(df_pl, abi_df_pl, is_log_type)
+    result_pl: pl.DataFrame = await _glaciers_python.decode_df_with_abi_df(decoder_type, df_pl, abi_df_pl)
     return to_prefered_type(result_pl)
 
 def decode_df_with_abi_df(
+    decoder_type: str,
     df: DataFrameType,
     abi_df: DataFrameType,
-    decoder_type: str,
 ) -> DataFrameType:
     import asyncio
-    coroutine = async_decode_df_with_abi_df(df, abi_df, decoder_type)
+    coroutine = async_decode_df_with_abi_df(decoder_type, df, abi_df)
 
     try:
         import concurrent.futures
