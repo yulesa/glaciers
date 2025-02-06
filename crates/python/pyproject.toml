@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "glaciers"
 version = "0.1.9"
-description = "Glaciers is a rust python bindings to decode raw EVM logs into decoded events."
+description = "Glaciers is a rust python bindings to decode raw EVM logs/traces into decoded events."
 requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Rust",
