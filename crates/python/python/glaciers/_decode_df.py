@@ -5,8 +5,8 @@ from . import _glaciers_python
 from glaciers import get_config
 
 async def async_decode_df(
-    df: DataFrameType,
     decoder_type: str,
+    df: DataFrameType,
     abi_df_path = None,
 ) -> DataFrameType:
     valid_decoder_types = ["log", "trace"]
@@ -17,13 +17,12 @@ async def async_decode_df(
         abi_df_path = toml.loads(get_config())["main"]["abi_df_file_path"]
 
     df_pl = to_polars(df)
-    is_log_type = decoder_type == "log"
-    result: pl.DataFrame = await _glaciers_python.decode_df(df_pl, abi_df_path, is_log_type)
+    result: pl.DataFrame = await _glaciers_python.decode_df(decoder_type, df_pl, abi_df_path)
     return to_prefered_type(result)
 
 def decode_df(
-    df: DataFrameType,
     decoder_type: str,
+    df: DataFrameType,
     abi_df_path = None,
 ) -> DataFrameType:
     
@@ -31,7 +30,7 @@ def decode_df(
         abi_df_path = toml.loads(get_config())["main"]["abi_df_file_path"]
 
     import asyncio
-    coroutine = async_decode_df(df, decoder_type, abi_df_path)
+    coroutine = async_decode_df(decoder_type, df, abi_df_path)
 
     try:
         import concurrent.futures

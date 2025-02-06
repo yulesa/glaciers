@@ -20,6 +20,7 @@ config = toml.load(StringIO(config))
 abi_file_path = project_dir+config['main']['abi_df_file_path']
 abi_folder_path = project_dir+config['main']['abi_folder_path']
 logs_folder_path = project_dir+config['main']['raw_logs_folder_path']
+traces_folder_path = project_dir+config['main']['raw_traces_folder_path']
 
 logs_df = pl.read_parquet(f"{logs_folder_path}/{LOGS_FILE_NAME}")
 print(f"Raw logs file: \n{logs_df.head()}\n\n")
@@ -30,7 +31,7 @@ print(f"Raw logs file: \n{logs_df.head()}\n\n")
 ######## Test update_abi_df ########
 # Reads ABIs in a folder and append to the abi parquet file
 #
-# This function loads each ABI definitions from a ABI folder and append the new itens (events and functions)
+# This function loads each ABI definitions from a ABI folder and append the new itens (events and functions, according to the configs)
 # into an existing abi DF (parquet file) the new unique entries. Function also output the dataframe.
 #
 # # Arguments
@@ -38,24 +39,25 @@ print(f"Raw logs file: \n{logs_df.head()}\n\n")
 # - `abi_folder_path`: Optional, default in config. Path to the folder containing ABI JSON files
 #
 # # Returns
-# A `PyResult` containing a `PyDataFrame` with all unique topic0 and event signatures
+# A `PyResult` containing a `PyDataFrame` with all functions and events itens signatures
 #
 # # Errors
 # Returns a `PyValueError` if there are issues reading or processing the ABIs
 abis_df = gl.update_abi_df(abi_df_path=abi_file_path, abi_folder_path=abi_folder_path)
 print(f"\nFirst 5 rows of updatedABIs DataFrame:\n{abis_df.head()}\n\n")
 
+
 ######## Test read_new_abi_folder ########
 # Reads ABIs in a folder
 #
-# This function loads ABI definitions from a folder and creates a DataFrame containing
-# all functions and events found in the ABI files.
+# This function loads ABI files from a folder and creates a DataFrame containing functions 
+# and events itens (according to the configs) found in the ABI files. It doesn't save them in a DB file.
 #
 # # Arguments
 # - `abi_folder_path`: Optional, default in config. Path to the folder containing ABI JSON files
 #
 # # Returns
-# A `PyResult` containing a `PyDataFrame` with all functions and events
+# A `PyResult` containing a `PyDataFrame` with all functions and events itens signatures
 #
 # # Errors
 # Returns a `PyValueError` if there are issues reading or processing the ABIs
@@ -66,14 +68,14 @@ print(f"\nABIs DataFrame from folder:\n{folder_df.head()}\n\n")
 ######## Test read_new_abi_file ########
 # Reads a single ABI file
 #
-# This function loads ABI definitions from a file and creates a DataFrame containing
-# all functions and events found in the ABI file.
+# This function loads ABI definitions from a file and creates a DataFrame containing functions 
+# and events itens (according to the configs) found in the ABI file.
 #
 # # Arguments
 # - `path`: Path to the ABI JSON file
 #
 # # Returns
-# A `PyResult` containing a `PyDataFrame` with all functions and events
+# A `PyResult` containing a `PyDataFrame` with all functions and events itens signatures
 #
 # # Errors
 # Returns a `PyValueError` if there are issues reading or processing the ABI
@@ -86,7 +88,7 @@ print(f"\nABIs DataFrame from single file:\n{file_df.head()}\n\n")
 # Reads a single ABI JSON string
 #
 # This function loads ABI definitions from a JSON string and creates a DataFrame containing
-# all functions and events found in the ABI.
+# functions and events itens (according to the configs) found in the ABI.
 #
 # # Arguments
 # - `abi`: ABI JSON string
@@ -151,35 +153,37 @@ gl.decode_folder(decoder_type="log", abi_df_path=abi_file_path, folder_path=logs
 print(f"\n Decoded logs saved in the decoded folder.\n\n")
 
 
-######## Test decode_log_file ########
-# Decode a log file
+######## Test decode_file ########
+# Decode a log/trace file
 #
-# This function takes a log file path and a abi parquet file path and decode the file
-# to a decoded logs' DataFrame.
-#
-# # Arguments
-# - `log_file_path`: Path to the log file
-# - `abi_df_path`: Path to the abi parquet file
-#
-# # Returns
-# A `PyResult` containing a decoded logs' `PyDataFrame` or an error
-log_file = os.path.join(logs_folder_path, os.listdir(logs_folder_path)[0])  # Get first log file
-decoded_df = gl.decode_file(decoder_type="log", file_path=log_file, abi_df_path=abi_file_path)
-print(f"\nDecoded Logs in the log file {log_file}:\n{decoded_df.head()}\n\n")
-
-
-######## Test decode_log_df ########
-# Decode a logs' DataFrame
-#
-# This function takes a raw logs' DataFrame and a abi parquet file path and decode the df
-# to a decoded logs' DataFrame.
+# This function takes a log file path and a abi db parquet file and decode the file
+# to a decoded logs/traces DataFrame.
 #
 # # Arguments
-# - `logs_df`: A DataFrame containing raw blockchain logs
-# - `abi_file_path`: Path to the abi file containing the topic0 and event signatures
+# - `decoder_type`: Type of the decoder to use, allowed values = ["log", "trace"]
+# - `file_path`: Optional, default in config. Path to the log/trace file
+# - `abi_df_path`: Optional, default in config. Path to the abi parquet file
 #
 # # Returns
-# A `PyResult` containing a decoded logs' `PyDataFrame` or an error
+# A `PyResult` containing a decoded logs/traces DataFrame or an error
+trace_file = os.path.join(traces_folder_path, os.listdir(traces_folder_path)[0])  # Get first trace file
+decoded_df = gl.decode_file(decoder_type="trace", file_path=trace_file, abi_df_path=abi_file_path)
+print(f"\nDecoded Traces in the trace file {trace_file}:\n{decoded_df.head()}\n\n")
+
+
+######## Test decode_df ########
+# Decode a logs/traces DataFrame
+#
+# This function takes a raw logs/traces DataFrame and a abi DB parquet file path and decode the df
+# to a decoded logs/traces DataFrame.
+#
+# # Arguments
+# - `df`: A DataFrame containing raw blockchain logs/traces
+# - `decoder_type`: Type of the decoder to use, allowed values = ["log", "trace"]
+# - `abi_df_path`: Optional, default in config. Path to the abi parquet file
+#
+# # Returns
+# A `PyResult` containing a decoded logs/traces DataFrame or an error
 #
 # # Errors
 # Returns a `PyValueError` if there are issues processing the logs
@@ -188,19 +192,19 @@ decoded_df = gl.decode_df(df=logs_df, decoder_type="log", abi_df_path=abi_file_p
 print(f"\nDecoded Logs DataFrame:\n{decoded_df.head()}\n\n")
 
 
-######## Test decode_log_df_with_abi_df ########
-# Decode a logs' DataFrame with a abi DataFrame
+######## Test decode_df_with_abi_df ########
+# Decode a logs/traces DataFrame with a abi DataFrame
 #
-# This function takes a raw logs' DataFrame and a abi DataFrame and decode the df
-# to a decoded logs' DataFrame.
+# This function takes a raw logs/traces DataFrame and a abi DataFrame and decode the df
+# to a decoded logs/traces DataFrame.
 #
 # # Arguments
-# - `logs_df`: A DataFrame containing raw blockchain logs
+# - `df`: A DataFrame containing raw blockchain logs/traces
 # - `abi_df`: A DataFrame containing the ABI definitions
+# - `decoder_type`: Type of the decoder to use, allowed values = ["log", "trace"]
 #
 # # Returns
-# A `PyResult` containing a decoded logs' `PyDataFrame` or an error
-
+# A `PyResult` containing a decoded logs/traces DataFrame or an error
 logs_df = pl.read_parquet(f"{logs_folder_path}/{LOGS_FILE_NAME}")
 abi_df = pl.read_parquet(abi_file_path)
 decoded_df = gl.decode_df_with_abi_df(df=logs_df, abi_df=abi_df, decoder_type="log")
