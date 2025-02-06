@@ -50,8 +50,8 @@ pub struct AbiItemRow {
     id: String,
 }
 
-pub fn update_abi_df(abi_df_path: String, abi_folder_path: String) -> Result<DataFrame, AbiReaderError> {
-    let path = Path::new(&abi_df_path);
+pub fn update_abi_db(abi_db_path: String, abi_folder_path: String) -> Result<DataFrame, AbiReaderError> {
+    let path = Path::new(&abi_db_path);
     let existing_df = if path.exists() {
         utils::read_df_file(path)?
     } else {

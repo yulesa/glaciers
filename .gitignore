@@ -1,6 +1,7 @@
 /target
 /local_files
 /data
+/ABIs/abi_database
 __pycache__/
 *.csv
 *.txt

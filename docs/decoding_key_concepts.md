@@ -67,7 +67,8 @@ Here are some reasons why mismatches can occur:
 
 Glaciers has two algorithms for decoding:
 
-1. `topic0_address`: match logs to ABI signatures using both topic0 and address. Because this is guaranteed to be unique, only contracts with ABI in the abi_df will be matched and decoded.
-2. `topic0`: match logs to ABI signatures by topic0. First, it will try to find contract in the database using the method above. If not found, it will try match the log's hash with the most frequent signature in the abi_df.
+1. `hash_address`: match logs/traces to ABI signatures using both hash and address. Because this is guaranteed to be unique, only contracts with ABI in the ABI DB will be matched and decoded.
+2. `hash`: match logs/traces to ABI signatures by hash. First, it will try to find the contract in the database using the method above. If not found, it will try match the logs/traces hash with the most frequent signature in the ABI DB.
 
-Later, if a problematic mismatch is found, the user can manually add the ABI to the abi_df and run a backfill to fix the mismatch.
+Later, if a problematic mismatch is found, the user can manually add the ABI to the ABI DB and run a backfill to fix the mismatch.
+In the future, we can implement more sophisticated algorithms to match the logs/traces to the ABI.

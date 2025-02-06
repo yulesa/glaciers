@@ -23,6 +23,8 @@ pub struct Config {
     pub main: MainConfig,
     pub abi_reader: AbiReaderConfig,
     pub decoder: DecoderConfig,
+    pub log_decoder: LogDecoderConfig,
+    pub trace_decoder: TraceDecoderConfig,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -39,9 +41,11 @@ pub enum PreferedDataframeType {
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct MainConfig {
-    pub abi_df_file_path: String,
+    pub events_abi_db_file_path: String,
+    pub functions_abi_db_file_path: String,
     pub abi_folder_path: String,
     pub raw_logs_folder_path: String,
+    pub raw_traces_folder_path: String,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -52,8 +56,7 @@ pub struct AbiReaderConfig {
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct DecoderConfig {
-    pub logs_algorithm: Algorithm,
-    pub schema: SchemaConfig,
+    pub algorithm: DecoderAlgorithm,
     pub output_hex_string_encoding: bool,
     pub output_file_format: String,
     pub max_concurrent_files_decoding: usize,
@@ -62,19 +65,24 @@ pub struct DecoderConfig {
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
-pub enum Algorithm {
-    Topic0Address,
-    Topic0
+pub enum DecoderAlgorithm {
+    HashAddress,
+    Hash
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
-pub struct SchemaConfig {
-    pub alias: AliasConfig,
-    pub datatype: DatatypeConfig,
+pub struct LogDecoderConfig {
+    pub log_schema: LogSchemaConfig,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
-pub struct AliasConfig {
+pub struct LogSchemaConfig {
+    pub log_alias: LogAliasConfig,
+    pub log_datatype: LogDatatypeConfig,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct LogAliasConfig {
     pub topic0: String,
     pub topic1: String,
     pub topic2: String,
@@ -83,14 +91,15 @@ pub struct AliasConfig {
     pub address: String,
 }
 
-impl AliasConfig {
+impl LogAliasConfig {
     pub fn as_array(&self) -> Vec<String> {
+        // excluding the address column because it is not used in the log decoding
         vec![self.topic0.clone(), self.topic1.clone(), self.topic2.clone(), self.topic3.clone(), self.data.clone()]
     }
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
-pub struct DatatypeConfig {
+pub struct LogDatatypeConfig {
     pub topic0: DataType,
     pub topic1: DataType,
     pub topic2: DataType,
@@ -99,9 +108,49 @@ pub struct DatatypeConfig {
     pub address: DataType,
 }
 
-impl DatatypeConfig {
+impl LogDatatypeConfig {
     pub fn as_array(&self) -> Vec<DataType> {
         vec![self.topic0.clone(), self.topic1.clone(), self.topic2.clone(), self.topic3.clone(), self.data.clone(), self.address.clone()]
+    }
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct TraceDecoderConfig {
+    pub trace_schema: TraceSchemaConfig,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct TraceSchemaConfig {
+    pub trace_alias: TraceAliasConfig,
+    pub trace_datatype: TraceDatatypeConfig,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct TraceAliasConfig {
+    pub selector: String,
+    pub action_input: String,
+    pub result_output: String,
+    pub action_to: String,
+}
+
+impl TraceAliasConfig {
+    pub fn as_array(&self) -> Vec<String> {
+        // excluding the selector and address column because it is not used in the trace decoding
+        vec![self.action_input.clone(), self.result_output.clone()]
+    }
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct TraceDatatypeConfig {
+    pub selector: DataType,
+    pub action_input: DataType,
+    pub result_output: DataType,
+    pub action_to: DataType,
+}
+
+impl TraceDatatypeConfig {
+    pub fn as_array(&self) -> Vec<DataType> {
+        vec![self.selector.clone(), self.action_input.clone(), self.result_output.clone(), self.action_to.clone()]
     }
 }
 
@@ -111,7 +160,6 @@ pub enum DataType {
     HexString
 }
 
-
 pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
     RwLock::new(Config {
         glaciers: GlaciersConfig {
@@ -119,18 +167,27 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
             unnesting_hex_string_encoding: false,
         },
         main: MainConfig {
-            abi_df_file_path: String::from("ABIs/ethereum__abis.parquet"),
+            events_abi_db_file_path: String::from("ABIs/ethereum__events__abis.parquet"),
+            functions_abi_db_file_path: String::from("ABIs/ethereum__functions__abis.parquet"),
             abi_folder_path: String::from("ABIs/abi_database"),
             raw_logs_folder_path: String::from("data/logs"),
+            raw_traces_folder_path: String::from("data/traces"),
         },
         abi_reader: AbiReaderConfig {
             output_hex_string_encoding: false,
             unique_key: vec![String::from("hash"), String::from("full_signature"), String::from("address")],
         },
         decoder: DecoderConfig {
-            logs_algorithm: Algorithm::Topic0,
-            schema: SchemaConfig {
-                alias: AliasConfig {
+            algorithm: DecoderAlgorithm::Hash,
+            output_hex_string_encoding: false,
+            output_file_format: String::from("parquet"),
+            max_concurrent_files_decoding: 16,
+            max_chunk_threads_per_file: 16,
+            decoded_chunk_size: 500_000,
+        },
+        log_decoder: LogDecoderConfig {
+            log_schema: LogSchemaConfig {
+                log_alias: LogAliasConfig {
                     topic0: String::from("topic0"),
                     topic1: String::from("topic1"),
                     topic2: String::from("topic2"),
@@ -138,7 +195,7 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
                     data: String::from("data"),
                     address: String::from("address"),
                 },
-                datatype: DatatypeConfig {
+                log_datatype: LogDatatypeConfig {
                     topic0: DataType::Binary,
                     topic1: DataType::Binary,
                     topic2: DataType::Binary,
@@ -147,11 +204,22 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
                     address: DataType::Binary,
                 }
             },
-            output_hex_string_encoding: false,
-            output_file_format: String::from("parquet"),
-            max_concurrent_files_decoding: 16,
-            max_chunk_threads_per_file: 16,
-            decoded_chunk_size: 500_000,
+        },
+        trace_decoder: TraceDecoderConfig {
+            trace_schema: TraceSchemaConfig {
+                trace_alias: TraceAliasConfig {
+                    selector: String::from("selector"),
+                    action_input: String::from("action_input"),
+                    result_output: String::from("result_output"),
+                    action_to: String::from("action_to"),
+                },
+                trace_datatype: TraceDatatypeConfig {
+                    selector: DataType::Binary,
+                    action_input: DataType::Binary,
+                    result_output: DataType::Binary,
+                    action_to: DataType::Binary,
+                }
+            },
         },
     })
 });
@@ -213,9 +281,11 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
             _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
         },
         "main" => match (field, value) {
-            (Some("abi_df_file_path"), ConfigValue::String(v)) => config.main.abi_df_file_path = v,
+            (Some("events_abi_db_file_path"), ConfigValue::String(v)) => config.main.events_abi_db_file_path = v,
+            (Some("functions_abi_db_file_path"), ConfigValue::String(v)) => config.main.functions_abi_db_file_path = v,
             (Some("abi_folder_path"), ConfigValue::String(v)) => config.main.abi_folder_path = v,
             (Some("raw_logs_folder_path"), ConfigValue::String(v)) => config.main.raw_logs_folder_path = v,
+            (Some("raw_traces_folder_path"), ConfigValue::String(v)) => config.main.raw_traces_folder_path = v,
             _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
         },
 
@@ -242,67 +312,18 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
         },
         
         "decoder" => match (field, value) {
-            (Some("logs_algorithm"), ConfigValue::String(v)) => {
+            (Some("algorithm"), ConfigValue::String(v)) => {
                 match v.to_lowercase().as_str() {
-                    "topic0_address" => config.decoder.logs_algorithm = Algorithm::Topic0Address,
-                    "topic0" => config.decoder.logs_algorithm = Algorithm::Topic0,
+                    "hash_address" => config.decoder.algorithm = DecoderAlgorithm::HashAddress,
+                    "hash" => config.decoder.algorithm = DecoderAlgorithm::Hash,
                     _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
                 }
-            },
-            (Some("schema"), value) => match (subfield, value) {
-                (Some("alias"), ConfigValue::String(v)) => {
-                    match schema_field {
-                        Some("topic0") => config.decoder.schema.alias.topic0 = v,
-                        Some("topic1") => config.decoder.schema.alias.topic1 = v,
-                        Some("topic2") => config.decoder.schema.alias.topic2 = v,
-                        Some("topic3") => config.decoder.schema.alias.topic3 = v,
-                        Some("data") => config.decoder.schema.alias.data = v,
-                        Some("address") => config.decoder.schema.alias.address = v,
-                        _ => return Err(ConfiggerError::InvalidFieldOrValue(schema_field.unwrap_or("").to_string()))
-                    }
-                },
-                (Some("datatype"), ConfigValue::String(v)) => {
-                    match schema_field {
-                        Some("topic0") => config.decoder.schema.datatype.topic0 = match v.to_lowercase().as_str() {
-                            "binary" => DataType::Binary,
-                            "hexstring" => DataType::HexString,
-                            _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
-                        },
-                        Some("topic1") => config.decoder.schema.datatype.topic1 = match v.to_lowercase().as_str() {
-                            "binary" => DataType::Binary,
-                            "hexstring" => DataType::HexString,
-                            _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
-                        },
-                        Some("topic2") => config.decoder.schema.datatype.topic2 = match v.to_lowercase().as_str() {
-                            "binary" => DataType::Binary,
-                            "hexstring" => DataType::HexString,
-                            _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
-                        },
-                        Some("topic3") => config.decoder.schema.datatype.topic3 = match v.to_lowercase().as_str() {
-                            "binary" => DataType::Binary,
-                            "hexstring" => DataType::HexString,
-                            _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
-                        },
-                        Some("data") => config.decoder.schema.datatype.data = match v.to_lowercase().as_str() {
-                            "binary" => DataType::Binary,
-                            "hexstring" => DataType::HexString,
-                            _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
-                        },
-                        Some("address") => config.decoder.schema.datatype.address = match v.to_lowercase().as_str() {
-                            "binary" => DataType::Binary,
-                            "hexstring" => DataType::HexString,
-                            _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
-                        },
-                        _ => return Err(ConfiggerError::InvalidFieldOrValue(schema_field.unwrap_or("").to_string()))
-                    }
-                },
-                _ => return Err(ConfiggerError::InvalidFieldOrValue(subfield.unwrap_or("").to_string()))
             },
             (Some("output_hex_string_encoding"), ConfigValue::Boolean(v)) => config.decoder.output_hex_string_encoding = v,
             (Some("output_hex_string_encoding"), ConfigValue::Number(v)) => {
                 match v {
-                    1 => config.decoder.output_hex_string_encoding = true,
-                    0 => config.decoder.output_hex_string_encoding = false,
+                    1 => config.abi_reader.output_hex_string_encoding = true,
+                    0 => config.abi_reader.output_hex_string_encoding = false,
                     _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
                 }
             },
@@ -314,6 +335,100 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
             (Some("max_concurrent_files_decoding"), ConfigValue::Number(v)) => config.decoder.max_concurrent_files_decoding = v,
             (Some("max_chunk_threads_per_file"), ConfigValue::Number(v)) => config.decoder.max_chunk_threads_per_file = v,
             (Some("decoded_chunk_size"), ConfigValue::Number(v)) => config.decoder.decoded_chunk_size = v,
+            _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
+        },
+        
+        "log_decoder" => match (field, value) {
+            (Some("schema"), value) => match (subfield, value) {
+                (Some("alias"), ConfigValue::String(v)) => {
+                    match schema_field {
+                        Some("topic0") => config.log_decoder.log_schema.log_alias.topic0 = v,
+                        Some("topic1") => config.log_decoder.log_schema.log_alias.topic1 = v,
+                        Some("topic2") => config.log_decoder.log_schema.log_alias.topic2 = v,
+                        Some("topic3") => config.log_decoder.log_schema.log_alias.topic3 = v,
+                        Some("data") => config.log_decoder.log_schema.log_alias.data = v,
+                        Some("address") => config.log_decoder.log_schema.log_alias.address = v,
+                        _ => return Err(ConfiggerError::InvalidFieldOrValue(schema_field.unwrap_or("").to_string()))
+                    }
+                },
+                (Some("datatype"), ConfigValue::String(v)) => {
+                    match schema_field {
+                        Some("topic0") => config.log_decoder.log_schema.log_datatype.topic0 = match v.to_lowercase().as_str() {
+                            "binary" => DataType::Binary,
+                            "hexstring" => DataType::HexString,
+                            _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
+                        },
+                        Some("topic1") => config.log_decoder.log_schema.log_datatype.topic1 = match v.to_lowercase().as_str() {
+                            "binary" => DataType::Binary,
+                            "hexstring" => DataType::HexString,
+                            _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
+                        },
+                        Some("topic2") => config.log_decoder.log_schema.log_datatype.topic2 = match v.to_lowercase().as_str() {
+                            "binary" => DataType::Binary,
+                            "hexstring" => DataType::HexString,
+                            _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
+                        },
+                        Some("topic3") => config.log_decoder.log_schema.log_datatype.topic3 = match v.to_lowercase().as_str() {
+                            "binary" => DataType::Binary,
+                            "hexstring" => DataType::HexString,
+                            _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
+                        },
+                        Some("data") => config.log_decoder.log_schema.log_datatype.data = match v.to_lowercase().as_str() {
+                            "binary" => DataType::Binary,
+                            "hexstring" => DataType::HexString,
+                            _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
+                        },
+                        Some("address") => config.log_decoder.log_schema.log_datatype.address = match v.to_lowercase().as_str() {
+                            "binary" => DataType::Binary,
+                            "hexstring" => DataType::HexString,
+                            _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
+                        },
+                        _ => return Err(ConfiggerError::InvalidFieldOrValue(schema_field.unwrap_or("").to_string()))
+                    }
+                },
+                _ => return Err(ConfiggerError::InvalidFieldOrValue(subfield.unwrap_or("").to_string()))
+            },
+            _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
+        },
+        
+        "trace_decoder" => match (field, value) {
+            (Some("schema"), value) => match (subfield, value) {
+                (Some("alias"), ConfigValue::String(v)) => {
+                    match schema_field {
+                        Some("selector") => config.trace_decoder.trace_schema.trace_alias.selector = v,
+                        Some("action_input") => config.trace_decoder.trace_schema.trace_alias.action_input = v,
+                        Some("result_output") => config.trace_decoder.trace_schema.trace_alias.result_output = v,
+                        Some("action_to") => config.trace_decoder.trace_schema.trace_alias.action_to = v,
+                        _ => return Err(ConfiggerError::InvalidFieldOrValue(schema_field.unwrap_or("").to_string()))
+                    }
+                },
+                (Some("datatype"), ConfigValue::String(v)) => {
+                    match schema_field {
+                        Some("selector") => config.trace_decoder.trace_schema.trace_datatype.selector = match v.to_lowercase().as_str() {
+                            "binary" => DataType::Binary,
+                            "hexstring" => DataType::HexString,
+                            _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
+                        },
+                        Some("action_input") => config.trace_decoder.trace_schema.trace_datatype.action_input = match v.to_lowercase().as_str() {
+                            "binary" => DataType::Binary,
+                            "hexstring" => DataType::HexString,
+                            _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
+                        },
+                        Some("result_output") => config.trace_decoder.trace_schema.trace_datatype.result_output = match v.to_lowercase().as_str() {
+                            "binary" => DataType::Binary,
+                            "hexstring" => DataType::HexString,
+                            _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
+                        },
+                        Some("action_to") => config.trace_decoder.trace_schema.trace_datatype.action_to = match v.to_lowercase().as_str() {
+                            "binary" => DataType::Binary,
+                            "hexstring" => DataType::HexString,
+                            _ => return Err(ConfiggerError::InvalidFieldOrValue("Invalid datatype".to_string()))
+                        },
+                        _ => return Err(ConfiggerError::InvalidFieldOrValue(schema_field.unwrap_or("").to_string()))
+                    }
+                },
+                _ => return Err(ConfiggerError::InvalidFieldOrValue(subfield.unwrap_or("").to_string()))
+            },
             _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
         },
         _ => return Err(ConfiggerError::InvalidFieldOrValue(section.to_string()))

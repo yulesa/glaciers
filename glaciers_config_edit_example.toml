@@ -12,12 +12,17 @@ unnesting_hex_string_encoding = false
 
 # configuration for the CLI main component
 [main]
-# Path to the file containing the ABI (Application Binary Interface) signatures, it can be a csv or parquet file.
-abi_df_file_path = "ABIs/ethereum__abis.parquet"
+# If using a ABI database with both events and functions, set the following paths to the same file.
+# Path to the file containing the events ABI (Application Binary Interface) signatures, it can be a csv or parquet file.
+events_abi_db_file_path = "ABIs/ethereum__events__abis.parquet"
+# Path to the file containing the functions ABI (Application Binary Interface) signatures, it can be a csv or parquet file.
+functions_abi_db_file_path = "ABIs/ethereum__functions__abis.parquet"
 # Directory containing individual ABI JSON files to be read
 abi_folder_path = "ABIs/abi_database"
 # Directory where raw blockchain logs are stored
 raw_logs_folder_path = "data/logs"
+# Directory where raw blockchain traces are stored
+raw_traces_folder_path = "data/traces"
 
 # Configuration for the ABI reader component
 [abi_reader]
@@ -26,18 +31,12 @@ output_hex_string_encoding = false
 # Fields used to uniquely identify each ABI item. Allowed_keys = ["hash", "full_signature", "address"]
 unique_key = ["hash", "full_signature", "address"]
 
-# Settings for the decoder component
 [decoder]
-# logs_algorithm: algorithm to use for matching logs to ABI signatures, allowed values = 
-#   - "topic0_address": match logs to ABI signatures using both topic0 and address, only contracts with ABI in the abi_df will be matched
-#   - "topic0": match logs to ABI signatures by topic0, for contracts without ABIs in the abi_df, the most frequent signature in the abi_df will be matched
-logs_algorithm = "topic0"
-# Schema in the raw logs input dataframe
-# alias: name of the column in the input dataframe
-schema.alias = {topic0 = "topic0", topic1 = "topic1", topic2 = "topic2", topic3 = "topic3", data = "data", address = "address"}
-# datatype: type of the column in the input dataframe, allowed values = ["Binary", "HexString"]
-schema.datatype = {topic0 = "Binary", topic1 = "Binary", topic2 = "Binary", topic3 = "Binary", data = "Binary", address = "Binary"}
-# Use hex string encoding for binary columns in the outputing dataframes
+# algorithm: algorithm to use for matching logs/traces to ABI signatures, allowed values = 
+#   - "hash_address": match logs/traces to ABI signatures using both hash and address, only contracts with ABI in the ABI DB will be matched
+#   - "hash": match logs/traces to ABI signatures by hash, for contracts without ABIs in the ABI DB, the most frequent signature in the ABI DB will be matched
+algorithm = "hash_address"
+# Use hex string encoding for binary columns in the output dataframes
 output_hex_string_encoding = false
 # output_file_format: format of the output saved file, allowed values = ["csv", "parquet"]
 output_file_format = "parquet"
@@ -51,3 +50,19 @@ max_concurrent_files_decoding = 16
 max_chunk_threads_per_file = 16
 # Number of log entries to process in each chunk.
 decoded_chunk_size = 500_000
+
+# Settings for the log decoder component
+[log_decoder]
+# Schema in the raw logs input dataframe
+# alias: name of the column in the input dataframe
+schema.alias = {topic0 = "topic0", topic1 = "topic1", topic2 = "topic2", topic3 = "topic3", data = "data", address = "address"}
+# datatype: type of the column in the input dataframe, allowed values = ["Binary", "HexString"]
+schema.datatype = {topic0 = "Binary", topic1 = "Binary", topic2 = "Binary", topic3 = "Binary", data = "Binary", address = "Binary"}
+
+# Settings for the trace decoder component
+[trace_decoder]
+# Schema in the raw traces input dataframe
+# alias: name of the column in the input dataframe
+schema.alias = {selector = "selector", action_input = "action_input", result_output = "result_output", action_to = "action_to"}
+# datatype: type of the column in the input dataframe, allowed values = ["Binary", "HexString"]
+schema.datatype = {selector = "Binary", action_input = "Binary", result_output = "Binary", action_to = "Binary"}

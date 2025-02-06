@@ -2,6 +2,7 @@ use std::{ffi::OsStr, fs::File, path::Path};
 use polars::{error::ErrString, prelude::*};
 use alloy::dyn_abi::DynSolValue;
 use crate::configger::{self, get_config};
+use crate::decoder::DecoderType;
 
 pub fn binary_columns_to_hex_string(df: DataFrame) -> Result<DataFrame, PolarsError> {
     // Get names of binary columns
@@ -33,19 +34,19 @@ pub fn binary_columns_to_hex_string(df: DataFrame) -> Result<DataFrame, PolarsEr
         .collect()
 }
 
-pub fn hex_string_columns_to_binary(df: DataFrame) -> Result<DataFrame, PolarsError> {
-    let input_schema_datatype = get_config().decoder.schema.datatype;
-    let input_schema_alias = get_config().decoder.schema.alias;
+pub fn hex_string_columns_to_binary(df: DataFrame, decoder_type: &DecoderType) -> Result<DataFrame, PolarsError> {
+    let (input_schema_datatype, input_schema_alias) = match decoder_type {
+        DecoderType::Log => (get_config().log_decoder.log_schema.log_datatype.as_array(), get_config().log_decoder.log_schema.log_alias.as_array()),
+        DecoderType::Trace => (get_config().trace_decoder.trace_schema.trace_datatype.as_array(), get_config().trace_decoder.trace_schema.trace_alias.as_array()),
+    };
 
-    let bin_exprs: Vec<Expr> = input_schema_datatype.as_array()
+    let bin_exprs: Vec<Expr> = input_schema_datatype
         .iter()
-        .zip(input_schema_alias.as_array())
+        .zip(input_schema_alias)
         .filter(|(f, _alias)| matches!(f, configger::DataType::HexString))
         .map(|(_f, alias)| col(alias.as_str()).str().strip_prefix(lit("0x")).str().hex_decode(true).alias(alias.as_str()))
         .collect();
-    let df = df.lazy().with_columns(bin_exprs).collect()?;
-    Ok(df)
-
+    df.lazy().with_columns(bin_exprs).collect()   
 }
 
 pub fn abi_df_hex_string_columns_to_binary(mut abi_df: DataFrame) -> Result<DataFrame, PolarsError> {
