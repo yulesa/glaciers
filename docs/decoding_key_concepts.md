@@ -71,3 +71,4 @@ Glaciers has two algorithms for decoding:
 2. `hash`: match logs/traces to ABI signatures by hash. First, it will try to find the contract in the database using the method above. If not found, it will try match the logs/traces hash with the most frequent signature in the ABI DB.
 
 Later, if a problematic mismatch is found, the user can manually add the ABI to the ABI DB and run a backfill to fix the mismatch.
+In the future, we can implement more sophisticated algorithms to match the logs/traces to the ABI.
