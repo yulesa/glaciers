@@ -19,7 +19,7 @@ def unnest_event(
     if full_signature is not None:
         filtered_df = filtered_df.filter(pl.col("full_signature").str.to_lowercase() == full_signature.lower())
     if event_address is not None:
-        address_col = toml.loads(get_config())["decoder"]["schema"]["alias"]["address"]
+        address_col = toml.loads(get_config())["log_decoder"]["log_schema"]["log_alias"]["address"]
         col_types = filtered_df.select([pl.col(address_col)]).dtypes
         if col_types[0] == pl.String:
             filtered_df = filtered_df.filter(pl.col(address_col).str.to_lowercase().str.replace("0x", "") == event_address.lower().replace("0x", ""))
@@ -28,7 +28,7 @@ def unnest_event(
         else:
             raise ValueError(f"Invalid column type for address: {col_types[0]}")
     if topic0 is not None:
-        topic0_col = toml.loads(get_config())["decoder"]["schema"]["alias"]["topic0"]
+        topic0_col = toml.loads(get_config())["log_decoder"]["log_schema"]["log_alias"]["topic0"]
         col_types = filtered_df.select([pl.col(topic0_col)]).dtypes
         if col_types[0] == pl.String:
             filtered_df = filtered_df.filter(pl.col(topic0_col).str.to_lowercase().str.replace("0x", "") == topic0.lower().replace("0x", ""))
@@ -45,7 +45,7 @@ def unnest_event(
         raise ValueError("No event found after filtering with the given parameters")
     
     else:
-        first_row = filtered_df.select(pl.col("event_json").str.json_decode()).row(1)[0]
+        first_row = filtered_df.select(pl.col("event_json").str.json_decode()).row(0)[0]
         num_fields = len(first_row)
         value_types = []
         field_names = []

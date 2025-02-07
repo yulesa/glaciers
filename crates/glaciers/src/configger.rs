@@ -29,7 +29,7 @@ pub struct Config {
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct GlaciersConfig {
-    pub prefered_dataframe_type: PreferedDataframeType,
+    pub preferred_dataframe_type: PreferedDataframeType,
     pub unnesting_hex_string_encoding: bool,
 }
 
@@ -170,7 +170,7 @@ pub enum DataType {
 pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
     RwLock::new(Config {
         glaciers: GlaciersConfig {
-            prefered_dataframe_type: PreferedDataframeType::Polars,
+            preferred_dataframe_type: PreferedDataframeType::Polars,
             unnesting_hex_string_encoding: false,
         },
         main: MainConfig {
@@ -278,10 +278,10 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
 
     match section {
         "glaciers" => match (field, value) {
-            (Some("prefered_dataframe_type"), ConfigValue::String(v)) => {
+            (Some("preferred_dataframe_type"), ConfigValue::String(v)) => {
                 match v.to_lowercase().as_str() {
-                    "polars" => config.glaciers.prefered_dataframe_type = PreferedDataframeType::Polars,
-                    "pandas" => config.glaciers.prefered_dataframe_type = PreferedDataframeType::Pandas,
+                    "polars" => config.glaciers.preferred_dataframe_type = PreferedDataframeType::Polars,
+                    "pandas" => config.glaciers.preferred_dataframe_type = PreferedDataframeType::Pandas,
                     _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
                 }
             },
@@ -338,8 +338,8 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
             (Some("output_hex_string_encoding"), ConfigValue::Boolean(v)) => config.decoder.output_hex_string_encoding = v,
             (Some("output_hex_string_encoding"), ConfigValue::Number(v)) => {
                 match v {
-                    1 => config.abi_reader.output_hex_string_encoding = true,
-                    0 => config.abi_reader.output_hex_string_encoding = false,
+                    1 => config.decoder.output_hex_string_encoding = true,
+                    0 => config.decoder.output_hex_string_encoding = false,
                     _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
                 }
             },
@@ -355,8 +355,8 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
         },
         
         "log_decoder" => match (field, value) {
-            (Some("schema"), value) => match (subfield, value) {
-                (Some("alias"), ConfigValue::String(v)) => {
+            (Some("log_schema"), value) => match (subfield, value) {
+                (Some("log_alias"), ConfigValue::String(v)) => {
                     match schema_field {
                         Some("topic0") => config.log_decoder.log_schema.log_alias.topic0 = v,
                         Some("topic1") => config.log_decoder.log_schema.log_alias.topic1 = v,
@@ -367,7 +367,7 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
                         _ => return Err(ConfiggerError::InvalidFieldOrValue(schema_field.unwrap_or("").to_string()))
                     }
                 },
-                (Some("datatype"), ConfigValue::String(v)) => {
+                (Some("log_datatype"), ConfigValue::String(v)) => {
                     match schema_field {
                         Some("topic0") => config.log_decoder.log_schema.log_datatype.topic0 = match v.to_lowercase().as_str() {
                             "binary" => DataType::Binary,
@@ -408,8 +408,8 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
         },
         
         "trace_decoder" => match (field, value) {
-            (Some("schema"), value) => match (subfield, value) {
-                (Some("alias"), ConfigValue::String(v)) => {
+            (Some("trace_schema"), value) => match (subfield, value) {
+                (Some("trace_alias"), ConfigValue::String(v)) => {
                     match schema_field {
                         Some("selector") => config.trace_decoder.trace_schema.trace_alias.selector = v,
                         Some("action_input") => config.trace_decoder.trace_schema.trace_alias.action_input = v,
@@ -418,7 +418,7 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
                         _ => return Err(ConfiggerError::InvalidFieldOrValue(schema_field.unwrap_or("").to_string()))
                     }
                 },
-                (Some("datatype"), ConfigValue::String(v)) => {
+                (Some("trace_datatype"), ConfigValue::String(v)) => {
                     match schema_field {
                         Some("selector") => config.trace_decoder.trace_schema.trace_datatype.selector = match v.to_lowercase().as_str() {
                             "binary" => DataType::Binary,

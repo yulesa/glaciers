@@ -5,8 +5,8 @@
 # or using the set_config(config_key, config_value) function.
 
 [glaciers]
-# prefered_dataframe_type: prefered dataframe type for the outputs of the glaciers functions, allowed values = ["polars", "pandas"]
-prefered_dataframe_type = "polars"  
+# preferred_dataframe_type: prefered dataframe type for the outputs of the glaciers functions, allowed values = ["polars", "pandas"]
+preferred_dataframe_type = "polars"  
 # Use hex string encoding for binary columns in the unnesting function
 unnesting_hex_string_encoding = false
 
@@ -37,7 +37,7 @@ unique_key = ["hash", "full_signature", "address"]
 # algorithm: algorithm to use for matching logs/traces to ABI signatures, allowed values = 
 #   - "hash_address": match logs/traces to ABI signatures using both hash and address, only contracts with ABI in the ABI DB will be matched
 #   - "hash": match logs/traces to ABI signatures by hash, for contracts without ABIs in the ABI DB, the most frequent signature in the ABI DB will be matched
-algorithm = "hash_address"
+algorithm = "hash"
 # Use hex string encoding for binary columns in the output dataframes
 output_hex_string_encoding = false
 # output_file_format: format of the output saved file, allowed values = ["csv", "parquet"]
@@ -57,14 +57,14 @@ decoded_chunk_size = 500_000
 [log_decoder]
 # Schema in the raw logs input dataframe
 # alias: name of the column in the input dataframe
-schema.alias = {topic0 = "topic0", topic1 = "topic1", topic2 = "topic2", topic3 = "topic3", data = "data", address = "address"}
+log_schema.log_alias = {topic0 = "topic0", topic1 = "topic1", topic2 = "topic2", topic3 = "topic3", data = "data", address = "address"}
 # datatype: type of the column in the input dataframe, allowed values = ["Binary", "HexString"]
-schema.datatype = {topic0 = "Binary", topic1 = "Binary", topic2 = "Binary", topic3 = "Binary", data = "Binary", address = "Binary"}
+log_schema.log_datatype = {topic0 = "Binary", topic1 = "Binary", topic2 = "Binary", topic3 = "Binary", data = "Binary", address = "Binary"}
 
 # Settings for the trace decoder component
 [trace_decoder]
 # Schema in the raw traces input dataframe
 # alias: name of the column in the input dataframe
-schema.alias = {selector = "selector", action_input = "action_input", result_output = "result_output", action_to = "action_to"}
+trace_schema.trace_alias = {selector = "selector", action_input = "action_input", result_output = "result_output", action_to = "action_to"}
 # datatype: type of the column in the input dataframe, allowed values = ["Binary", "HexString"]
-schema.datatype = {selector = "Binary", action_input = "Binary", result_output = "Binary", action_to = "Binary"}
+trace_schema.trace_datatype = {selector = "Binary", action_input = "Binary", result_output = "Binary", action_to = "Binary"}
