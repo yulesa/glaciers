@@ -26,6 +26,8 @@ raw_traces_folder_path = "data/traces"
 
 # Configuration for the ABI reader component
 [abi_reader]
+# Select which type of ABI itens to read and store in the ABI DB, allowed values = ["events", "functions", "both"]
+abi_read_mode = "events"
 # Use hex string encoding for binary columns for the abi_df
 output_hex_string_encoding = false
 # Fields used to uniquely identify each ABI item. Allowed_keys = ["hash", "full_signature", "address"]
