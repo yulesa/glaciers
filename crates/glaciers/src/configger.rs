@@ -29,7 +29,7 @@ pub struct Config {
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct GlaciersConfig {
-    pub prefered_dataframe_type: PreferedDataframeType,
+    pub preferred_dataframe_type: PreferedDataframeType,
     pub unnesting_hex_string_encoding: bool,
 }
 
@@ -170,7 +170,7 @@ pub enum DataType {
 pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
     RwLock::new(Config {
         glaciers: GlaciersConfig {
-            prefered_dataframe_type: PreferedDataframeType::Polars,
+            preferred_dataframe_type: PreferedDataframeType::Polars,
             unnesting_hex_string_encoding: false,
         },
         main: MainConfig {
@@ -278,10 +278,10 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
 
     match section {
         "glaciers" => match (field, value) {
-            (Some("prefered_dataframe_type"), ConfigValue::String(v)) => {
+            (Some("preferred_dataframe_type"), ConfigValue::String(v)) => {
                 match v.to_lowercase().as_str() {
-                    "polars" => config.glaciers.prefered_dataframe_type = PreferedDataframeType::Polars,
-                    "pandas" => config.glaciers.prefered_dataframe_type = PreferedDataframeType::Pandas,
+                    "polars" => config.glaciers.preferred_dataframe_type = PreferedDataframeType::Polars,
+                    "pandas" => config.glaciers.preferred_dataframe_type = PreferedDataframeType::Pandas,
                     _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
                 }
             },
@@ -338,8 +338,8 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
             (Some("output_hex_string_encoding"), ConfigValue::Boolean(v)) => config.decoder.output_hex_string_encoding = v,
             (Some("output_hex_string_encoding"), ConfigValue::Number(v)) => {
                 match v {
-                    1 => config.abi_reader.output_hex_string_encoding = true,
-                    0 => config.abi_reader.output_hex_string_encoding = false,
+                    1 => config.decoder.output_hex_string_encoding = true,
+                    0 => config.decoder.output_hex_string_encoding = false,
                     _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
                 }
             },

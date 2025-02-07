@@ -18,11 +18,11 @@ def to_polars(df: DataFrameType) -> pl.DataFrame:
 
 def to_prefered_type(df: pl.DataFrame) -> DataFrameType:
     """Convert Polars DataFrame back to prefered type"""
-    prefered_dataframe_type = toml.loads(get_config())["glaciers"]["prefered_dataframe_type"]
+    preferred_dataframe_type = toml.loads(get_config())["glaciers"]["preferred_dataframe_type"]
 
-    if prefered_dataframe_type == "Polars":
+    if preferred_dataframe_type == "Polars":
         return df
-    elif prefered_dataframe_type == "Pandas":
+    elif preferred_dataframe_type == "Pandas":
         return df.to_pandas()
     else:
-        raise ValueError("Invalid prefered_dataframe_type specified") 
+        raise ValueError("Invalid preferred_dataframe_type specified") 

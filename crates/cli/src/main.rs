@@ -23,7 +23,7 @@ struct Cli {
     #[arg(short, long, value_names = ["PATH"])]
     toml: Option<String>,
 
-    /// Set config values (ie: -c glacier.prefered_dataframe_type polars). It accepts multiple configs and will always override toml configs.
+    /// Set config values (ie: -c glacier.preferred_dataframe_type polars). It accepts multiple configs and will always override toml configs.
     #[arg(short, long = "config", value_names = ["KEY", "VALUE"], num_args = 2, action = clap::ArgAction::Append)]
     config: Vec<String>,
 
