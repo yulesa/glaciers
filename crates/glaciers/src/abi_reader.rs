@@ -6,7 +6,7 @@ use polars::prelude::*;
 use chrono::Local;
 use thiserror::Error;
 
-use crate::configger::get_config; 
+use crate::configger::{self, get_config}; 
 use crate::utils;
 
 #[derive(Error, Debug)]
@@ -176,8 +176,18 @@ pub fn read_new_abi_file(path: PathBuf) -> Result<DataFrame, AbiReaderError> {
 }
 
 pub fn read_new_abi_json(abi: JsonAbi, address: Address) -> Result<DataFrame, AbiReaderError>{
-    let function_rows: Vec<AbiItemRow> = abi.functions().map(|function| create_function_row(function, address)).collect();
-    let event_rows: Vec<AbiItemRow> = abi.events().map(|event| create_event_row(event, address)).collect();
+    let abi_read_mode = get_config().abi_reader.abi_read_mode;
+    // inverted logic because we want to read all items except the ones specified in the abi_read_mode
+    let function_rows: Vec<AbiItemRow> = if abi_read_mode != configger::AbiReadMode::Events {
+        abi.functions().map(|function| create_function_row(function, address)).collect()
+    } else {
+        vec![]
+    };
+    let event_rows: Vec<AbiItemRow> = if abi_read_mode != configger::AbiReadMode::Functions {
+        abi.events().map(|event| create_event_row(event, address)).collect()
+    } else {
+        vec![]
+    };
     let abi_rows = [function_rows, event_rows].concat();
     
     create_dataframe_from_rows(abi_rows)

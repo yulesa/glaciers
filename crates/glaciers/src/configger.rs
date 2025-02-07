@@ -50,10 +50,17 @@ pub struct MainConfig {
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct AbiReaderConfig {
+    pub abi_read_mode: AbiReadMode,
     pub unique_key: Vec<String>,
     pub output_hex_string_encoding: bool,
 }
 
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
+pub enum AbiReadMode {
+    Events,
+    Functions,
+    Both
+}
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct DecoderConfig {
     pub algorithm: DecoderAlgorithm,
@@ -174,6 +181,7 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
             raw_traces_folder_path: String::from("data/traces"),
         },
         abi_reader: AbiReaderConfig {
+            abi_read_mode: AbiReadMode::Events,
             output_hex_string_encoding: false,
             unique_key: vec![String::from("hash"), String::from("full_signature"), String::from("address")],
         },
@@ -290,6 +298,14 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
         },
 
         "abi_reader" => match (field, value) {
+            (Some("abi_read_mode"), ConfigValue::String(v)) => {
+                match v.to_lowercase().as_str() {
+                    "events" => config.abi_reader.abi_read_mode = AbiReadMode::Events,
+                    "functions" => config.abi_reader.abi_read_mode = AbiReadMode::Functions,
+                    "both" => config.abi_reader.abi_read_mode = AbiReadMode::Both,
+                    _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
+                }
+            },
             (Some("output_hex_string_encoding"), ConfigValue::Boolean(v)) => config.abi_reader.output_hex_string_encoding = v,
             (Some("output_hex_string_encoding"), ConfigValue::Number(v)) => {
                 match v {
