@@ -355,8 +355,8 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
         },
         
         "log_decoder" => match (field, value) {
-            (Some("schema"), value) => match (subfield, value) {
-                (Some("alias"), ConfigValue::String(v)) => {
+            (Some("log_schema"), value) => match (subfield, value) {
+                (Some("log_alias"), ConfigValue::String(v)) => {
                     match schema_field {
                         Some("topic0") => config.log_decoder.log_schema.log_alias.topic0 = v,
                         Some("topic1") => config.log_decoder.log_schema.log_alias.topic1 = v,
@@ -367,7 +367,7 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
                         _ => return Err(ConfiggerError::InvalidFieldOrValue(schema_field.unwrap_or("").to_string()))
                     }
                 },
-                (Some("datatype"), ConfigValue::String(v)) => {
+                (Some("log_datatype"), ConfigValue::String(v)) => {
                     match schema_field {
                         Some("topic0") => config.log_decoder.log_schema.log_datatype.topic0 = match v.to_lowercase().as_str() {
                             "binary" => DataType::Binary,
@@ -408,8 +408,8 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
         },
         
         "trace_decoder" => match (field, value) {
-            (Some("schema"), value) => match (subfield, value) {
-                (Some("alias"), ConfigValue::String(v)) => {
+            (Some("trace_schema"), value) => match (subfield, value) {
+                (Some("trace_alias"), ConfigValue::String(v)) => {
                     match schema_field {
                         Some("selector") => config.trace_decoder.trace_schema.trace_alias.selector = v,
                         Some("action_input") => config.trace_decoder.trace_schema.trace_alias.action_input = v,
@@ -418,7 +418,7 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
                         _ => return Err(ConfiggerError::InvalidFieldOrValue(schema_field.unwrap_or("").to_string()))
                     }
                 },
-                (Some("datatype"), ConfigValue::String(v)) => {
+                (Some("trace_datatype"), ConfigValue::String(v)) => {
                     match schema_field {
                         Some("selector") => config.trace_decoder.trace_schema.trace_datatype.selector = match v.to_lowercase().as_str() {
                             "binary" => DataType::Binary,
