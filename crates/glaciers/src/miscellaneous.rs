@@ -1,3 +1,10 @@
+//! Miscellaneous functions for the Glaciers.
+//! 
+//! This module provides miscellaneous functions that are not part of the main functionality of the Glaciers.
+//! 
+//! The module provides the following functions:
+//!  - decode_df_using_single_contract: Decodes a DataFrame with only a single contract address, by downloading the ABI from Sourcify.
+
 use std::str::FromStr;
 use reqwest::Client;
 use alloy::{json_abi::JsonAbi, primitives::Address};
@@ -7,6 +14,7 @@ use thiserror::Error;
 use crate::abi_reader;
 use crate::decoder::{self, DecoderType};
 
+/// Error types that can occur during miscellaneous operations
 #[derive(Error, Debug)]
 pub enum MiscellaneousError {
     #[error("Unable to download ABI from Sourcify, Reqwest error: {0}")]
@@ -21,6 +29,19 @@ pub enum MiscellaneousError {
     DecoderError(#[from] decoder::DecoderError),
 }
 
+/// Decodes a DataFrame with only a single contract address, by downloading the ABI from Sourcify.
+/// 
+/// # Arguments
+/// * `df` - The DataFrame to decode
+/// * `contract_address` - The contract address to decode
+/// * `decoder_type` - The type of decoder to use
+///
+/// # Returns
+/// * If successful, a DataFrame with the decoded data.
+/// 
+/// # Notes
+/// - This is a shortcuting function that automatically downloads the ABI from Sourcify, reads it and decodes the DataFrame.
+/// - Nevertheless, we recommend following the normal flow and creating the ABI DB first.
 pub async fn decode_df_using_single_contract(df: DataFrame, contract_address: String, decoder_type: DecoderType) -> Result<DataFrame, MiscellaneousError> {
     // Download the ABI from Sourcify
     let client = Client::new();

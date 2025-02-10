@@ -1,3 +1,11 @@
+//! Trace decoder module have the functions that are specific to decode traces.
+//! 
+//! This module provides functions to:
+//! - Run through a DataFrame of traces calling the UDF (User Defined Function) each line
+//! - A UDF to decode a single trace line into a 6 parts string separated by ;
+//! - A function to extract from an array of series the input, output and signature
+//! - A function to decode the trace line using the alloy library decode_inputs/decode_outputs function
+//! - A function to map the decoded input/output parts into a StructuredParam for serialization
 use alloy::dyn_abi::{DynSolValue, FunctionExt, JsonAbiExt};
 use alloy::json_abi::Function;
 use polars::prelude::*;
@@ -7,6 +15,7 @@ use crate::configger::get_config;
 use crate::decoder::{DecoderError, StructuredParam};
 use crate::utils;
 
+/// Error types specific to trace decoding operations.
 #[derive(Error, Debug)]
 pub enum TraceDecoderError {
     #[error("Trace decoder error: {0}")]
@@ -15,6 +24,7 @@ pub enum TraceDecoderError {
     PolarsError(#[from] PolarsError),   
 }
 
+/// Internal structure to hold each part of the decoded function
 struct ExtDecodedFunction {
     input_values: Vec<String>,
     input_keys: Vec<String>,
@@ -24,6 +34,23 @@ struct ExtDecodedFunction {
     output_json: String,
 }
 
+/// Decodes EVM transaction traces in a DataFrame and decodes both the input
+/// and output data using the provided function signatures.
+///
+/// # Arguments
+/// * `df` - Input DataFrame containing raw trace data and matching function signatures
+///
+/// # Returns
+/// If successful, a DataFrame with decoded trace data including:
+///   - input_values: Array of decoded input parameter values
+///   - input_keys: Array of input parameter names
+///   - input_json: JSON string representation of decoded inputs
+///   - output_values: Array of decoded output parameter values
+///   - output_keys: Array of output parameter names  
+///   - output_json: JSON string representation of decoded outputs
+///
+/// # Notes
+/// The output format (binary/hex) of some columns is determined by configuration
 pub fn polars_decode_traces(df: DataFrame) -> Result<DataFrame, DecoderError> {
     let input_schema_alias = get_config().trace_decoder.trace_schema.trace_alias;
 
@@ -91,7 +118,15 @@ pub fn polars_decode_traces(df: DataFrame) -> Result<DataFrame, DecoderError> {
     })
 }
 
-//Construct a vec with input, output and signature, and iterate through each, calling the decode function and mapping it to a 6 parts result string separated by ;
+/// UDF (User Defined Function) for decoding individual traces entries.
+///
+/// # Arguments
+/// * `s` - Series containing struct arrays of input, output and signature
+///
+/// # Returns
+/// If successful, a Series containing decoded trace in a string format, separated by ;
+///   "input_values";"input_keys";"input_json";"output_values";"output_keys";"output_json"
+///
 fn decode_trace_udf(s: Series) -> PolarsResult<Option<Series>> {
     let series_struct_array: &StructChunked = s.struct_()?;
     let fields = series_struct_array.fields();
@@ -122,7 +157,17 @@ fn decode_trace_udf(s: Series) -> PolarsResult<Option<Series>> {
     Ok(Some(udf_output.into_series()))
 }
 
-// translate [Series of input, Series of output, Series of signature] to Series of (input, output, signature)
+/// Extracts each trace field necessary for decoding from an array of Series.
+/// Translate [Series of input, Series of output, Series of signature] to Series of (input, output, signature)
+
+/// # Arguments
+/// * `fields` - Slice of Series containing input, output and signature
+///
+/// # Returns
+/// If successful, a vector (with items for each row) of tuples containing 3 values:
+///   - Vector of input as byte slice
+///   - Vector of output as byte slice
+///   - Event signature as string
 fn extract_trace_fields(fields: &[Series]) -> PolarsResult<Vec<(&[u8], &[u8], &str)>> {
     //extract input, output and signature from the df struct arrays
     let fields_input = fields[0].binary()?;
@@ -145,7 +190,21 @@ fn extract_trace_fields(fields: &[Series]) -> PolarsResult<Vec<(&[u8], &[u8], &s
         .collect()
 }
 
-//use alloy functions to create the necessary structs, and call the decode function
+/// Decodes a single transaction trace using Alloy's ABI decoding functions.
+///
+/// # Arguments
+/// * `input` - Raw input data as bytes
+/// * `output` - Raw output data as bytes  
+/// * `full_signature` - Function signature string
+///
+/// # Returns
+/// If successful, a struct containing 6 values:
+///   - input_values: JSON string of decoded input parameter values
+///   - input_keys: JSON string of input parameter names
+///   - input_json: JSON string representation of the decoded inputs
+///   - output_values: JSON string of decoded output parameter values
+///   - output_keys: JSON string of output parameter names
+///   - output_json: JSON string representation of the decoded outputs
 fn decode(
     input: &[u8],
     output: &[u8],
@@ -203,6 +262,16 @@ fn decode(
     })
 }
 
+/// Maps function signature parameters names to their corresponding decoded values.
+/// This function is necessary because the source of param values (output of decode_input/decode_output) 
+/// is different from the source of param names (Signature - Function Object), and we want to keep them in the same order.
+///
+/// # Arguments
+/// * `params` - Slice of function parameters from the ABI
+/// * `values` - Vector of decoded parameter values
+///
+/// # Returns
+/// If successful, a vector of StructuredParam (each item of the log_json)
 fn map_function_params(
     params: &[alloy::json_abi::Param],
     values: &[DynSolValue],

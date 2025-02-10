@@ -1,9 +1,25 @@
+//! Utility functions for the Glaciers.
+//! 
+//! This module provides utility functions that are not part of the main functionality of the Glaciers.
+//! 
+//! The module provides the following functions:
+//!  - binary_columns_to_hex_string: Converts binary columns to hex string columns.
+//!  - hex_string_columns_to_binary: Converts hex string columns to binary columns.
+//!  - abi_df_hex_string_columns_to_binary: Converts hex string columns to binary columns in an ABI DataFrame.
+
 use std::{ffi::OsStr, fs::File, path::Path};
 use polars::{error::ErrString, prelude::*};
 use alloy::dyn_abi::DynSolValue;
 use crate::configger::{self, get_config};
 use crate::decoder::DecoderType;
 
+/// Converts binary columns to hex string columns. Used when outputting hex strings, instead of binary.
+/// 
+/// # Arguments
+/// * `df` - The DataFrame to convert
+/// 
+/// # Returns
+/// * If successful, a DataFrame with the converted columns.
 pub fn binary_columns_to_hex_string(df: DataFrame) -> Result<DataFrame, PolarsError> {
     // Get names of binary columns
     let binary_cols: Vec<String> = df.schema()
@@ -34,6 +50,15 @@ pub fn binary_columns_to_hex_string(df: DataFrame) -> Result<DataFrame, PolarsEr
         .collect()
 }
 
+/// Converts columns from logs/traces dataframes from hex string to binary columns.
+/// Only the necessary columns are converted, based on the input schema in the configs.
+/// 
+/// # Arguments
+/// * `df` - The DataFrame to convert
+/// * `decoder_type` - The type of decoder to use
+/// 
+/// # Returns
+/// * If successful, a DataFrame with the converted columns.
 pub fn hex_string_columns_to_binary(df: DataFrame, decoder_type: &DecoderType) -> Result<DataFrame, PolarsError> {
     let (input_schema_datatype, input_schema_alias) = match decoder_type {
         DecoderType::Log => (get_config().log_decoder.log_schema.log_datatype.as_array(), get_config().log_decoder.log_schema.log_alias.as_array()),
@@ -49,6 +74,13 @@ pub fn hex_string_columns_to_binary(df: DataFrame, decoder_type: &DecoderType) -
     df.lazy().with_columns(bin_exprs).collect()   
 }
 
+/// Converts columns from hex string to binary columns if the ABI DB was saved as hex strings.
+/// 
+/// # Arguments
+/// * `abi_df` - The DataFrame to convert
+/// 
+/// # Returns
+/// * If successful, a DataFrame with the converted columns.
 pub fn abi_df_hex_string_columns_to_binary(mut abi_df: DataFrame) -> Result<DataFrame, PolarsError> {
    // Convert hash and address columns to binary if they aren't already
    let columns_to_convert = ["hash", "address"];
@@ -73,6 +105,13 @@ pub fn abi_df_hex_string_columns_to_binary(mut abi_df: DataFrame) -> Result<Data
    Ok(abi_df)
 }
 
+/// Reads a DataFrame from a file.
+/// 
+/// # Arguments
+/// * `path` - The path to the file to read
+/// 
+/// # Returns
+/// * If successful, a DataFrame with the read data.
 pub fn read_df_file(path: &Path) -> Result<DataFrame, PolarsError> {
     let path_ext = path.extension();
     if path_ext == Some(OsStr::new("parquet")) {
@@ -86,6 +125,14 @@ pub fn read_df_file(path: &Path) -> Result<DataFrame, PolarsError> {
     }
 }
 
+/// Writes a DataFrame to a file.
+/// 
+/// # Arguments
+/// * `df` - The DataFrame to write
+/// * `path` - The path to the file to write
+/// 
+/// # Returns
+/// * If successful, a DataFrame with the read data.
 pub fn write_df_file(df: &mut DataFrame, path: &Path) -> Result<(), PolarsError> {
     let mut file = File::create(path).map_err(|e| PolarsError::ComputeError(ErrString::from(e.to_string())))?;
     
@@ -97,7 +144,7 @@ pub fn write_df_file(df: &mut DataFrame, path: &Path) -> Result<(), PolarsError>
     Ok(())
 }
 
-//Wrapper type around DynSolValue, to implement to_string function.
+/// Wrapper type around DynSolValue, to implement to_string function.
 pub struct StrDynSolValue(DynSolValue);
 
 impl StrDynSolValue {
