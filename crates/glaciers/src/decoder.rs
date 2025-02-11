@@ -59,6 +59,8 @@ pub enum DecoderType {
 }
 
 /// Decodes all files in a folder. It spawns a task for each file to parallelize the decoding process.
+/// Decoded files are saved in a "decoded" folder, in the parent folder of the raw data.
+/// The file name is the same as the raw file name, but with the "logs" or "traces" replaced with "decoded_logs" or "decoded_traces".
 ///
 /// # Arguments
 /// * `folder_path` - Path to folder containing files to decode
@@ -139,7 +141,9 @@ pub async fn decode_folder(
 }
 
 /// Decodes a single file using the specified ABI database
-///
+/// Decoded file is saved in a "decoded" folder, in the parent folder of the raw data.
+/// The file name is the same as the raw file name, but with the "logs" or "traces" replaced with "decoded_logs" or "decoded_traces".
+/// 
 /// # Arguments
 /// * `file_path` - Path to file to decode
 /// * `abi_db_path` - Path to ABI database file
@@ -149,8 +153,6 @@ pub async fn decode_folder(
 /// * `Ok(DataFrame)` containing decoded data
 /// * `Err(DecoderError)` if decoding fails
 ///
-/// It also saves decoded data to a new file in a 'decoded' subdirectory, in the same folder as the source file.
-/// 
 /// # Notes
 /// The output format (binary/hex) of some columns is determined by configuration.
 pub async fn decode_file(

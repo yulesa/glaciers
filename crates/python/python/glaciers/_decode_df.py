@@ -1,4 +1,6 @@
 import polars as pl
+
+import polars as pl
 import toml
 from ._dataframe_utils import DataFrameType, to_polars, to_prefered_type
 from . import _glaciers_python
@@ -9,6 +11,26 @@ async def async_decode_df(
     df: DataFrameType,
     abi_db_path = None,
 ) -> DataFrameType:
+    """
+    Asynchronously decode blockchain data from a DataFrame and an the path to the ABI DB file.
+
+    Args:
+        decoder_type (str): Type of decoder to use. Must be either "log" or "trace".
+        df (DataFrameType): DataFrame (polars or pandas) containing the raw blockchain data.
+        abi_db_path (str, optional): Path to the ABI database file. If None, uses the path set in the config.
+
+    Returns:
+        DataFrameType: Decoded DataFrame (polars or pandas according to the config) with the results.
+
+    Example:
+        ```python
+        decoded_df = await async_decode_df(
+            "log",
+            raw_logs_df,
+            "ABIs/ethereum__events_abis.parquet"
+        )
+        ```
+    """
     valid_decoder_types = ["log", "trace"]
     if decoder_type not in valid_decoder_types:
         raise ValueError(f"Decoder type must be one of {valid_decoder_types}")
@@ -28,7 +50,28 @@ def decode_df(
     df: DataFrameType,
     abi_db_path = None,
 ) -> DataFrameType:
-    
+    """
+    Decode blockchain data from a DataFrame and an the path to the ABI DB file.
+
+    This is a synchronous wrapper around async_decode_df.
+
+    Args:
+        decoder_type (str): Type of decoder to use. Must be either "log" or "trace".
+        df (DataFrameType): DataFrame (polars or pandas) containing the raw blockchain data.
+        abi_db_path (str, optional): Path to the ABI database file. If None, uses the path set in the config.
+
+    Returns:
+        DataFrameType: Decoded DataFrame (polars or pandas according to the config) with the results.
+
+    Example:
+        ```python
+        decoded_df = decode_df(
+            "log",
+            raw_logs_df,
+            "ABIs/ethereum__events_abis.parquet"
+        )
+        ```
+    """
     if abi_db_path is None:
         if decoder_type == "log":
             abi_db_path = toml.loads(get_config())["main"]["events_abi_db_file_path"]
