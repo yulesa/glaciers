@@ -1,8 +1,17 @@
+//! Module for configuration management for the Glaciers.
+//! 
+//! The configger has 3 main components:
+//!  - It defines the structs for all the configuration fields.
+//!  - It provides the static GLACIERS_CONFIG, which is the default configuration for Glaciers.
+//!  - It provides the functions to get and set the configuration fields.
+
 use std::sync::{LazyLock, RwLock};
 use std::fs;
 use serde::{Deserialize, Serialize};
 use pyo3::FromPyObject;
 use thiserror::Error;
+
+/// Error types that can occur during configuration management
 #[derive(Error, Debug)]
 pub enum ConfiggerError {
     #[error("Error while setting GLACIERS_CONFIG, could not read Toml file, IO error: {0}")]
@@ -17,6 +26,7 @@ pub enum ConfiggerError {
     InvalidFieldOrValue(String),
 }
 
+/// Struct to hold all the other configuration sub structs.
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct Config {
     pub glaciers: GlaciersConfig,
@@ -27,18 +37,21 @@ pub struct Config {
     pub trace_decoder: TraceDecoderConfig,
 }
 
+/// Configuration for the Glaciers component
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct GlaciersConfig {
     pub preferred_dataframe_type: PreferedDataframeType,
     pub unnesting_hex_string_encoding: bool,
 }
 
+/// Prefered Dataframe Type enum
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub enum PreferedDataframeType {
     Polars,
     Pandas
 }
 
+/// Configuration for the Main component
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct MainConfig {
     pub events_abi_db_file_path: String,
@@ -48,6 +61,7 @@ pub struct MainConfig {
     pub raw_traces_folder_path: String,
 }
 
+/// Configuration for the ABI reader component
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct AbiReaderConfig {
     pub abi_read_mode: AbiReadMode,
@@ -55,12 +69,15 @@ pub struct AbiReaderConfig {
     pub output_hex_string_encoding: bool,
 }
 
+/// Enum for the different modes of reading ABIs
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
 pub enum AbiReadMode {
     Events,
     Functions,
     Both
 }
+
+/// Configuration for the Decoder component
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct DecoderConfig {
     pub algorithm: DecoderAlgorithm,
@@ -71,23 +88,27 @@ pub struct DecoderConfig {
     pub decoded_chunk_size: usize,
 }
 
+/// Enum for the different algorithms of decoding
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub enum DecoderAlgorithm {
     HashAddress,
     Hash
 }
 
+/// Configuration for the Log decoder component
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct LogDecoderConfig {
     pub log_schema: LogSchemaConfig,
 }
 
+/// Schema configuration for log data
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct LogSchemaConfig {
     pub log_alias: LogAliasConfig,
     pub log_datatype: LogDatatypeConfig,
 }
 
+/// Column aliases for log data
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct LogAliasConfig {
     pub topic0: String,
@@ -98,6 +119,7 @@ pub struct LogAliasConfig {
     pub address: String,
 }
 
+/// Returns only the column names used for log decoding as an array
 impl LogAliasConfig {
     pub fn as_array(&self) -> Vec<String> {
         // excluding the address column because it is not used in the log decoding
@@ -105,6 +127,7 @@ impl LogAliasConfig {
     }
 }
 
+/// Data type specifications (hexstring or binary) for log fields
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct LogDatatypeConfig {
     pub topic0: DataType,
@@ -115,23 +138,27 @@ pub struct LogDatatypeConfig {
     pub address: DataType,
 }
 
+/// Returns the data types for all log fields as an array
 impl LogDatatypeConfig {
     pub fn as_array(&self) -> Vec<DataType> {
         vec![self.topic0.clone(), self.topic1.clone(), self.topic2.clone(), self.topic3.clone(), self.data.clone(), self.address.clone()]
     }
 }
 
+/// Configuration for the Trace decoder component
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct TraceDecoderConfig {
     pub trace_schema: TraceSchemaConfig,
 }
 
+/// Schema configuration for trace data
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct TraceSchemaConfig {
     pub trace_alias: TraceAliasConfig,
     pub trace_datatype: TraceDatatypeConfig,
 }
 
+/// Column aliases for trace data
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct TraceAliasConfig {
     pub selector: String,
@@ -140,13 +167,14 @@ pub struct TraceAliasConfig {
     pub action_to: String,
 }
 
+/// Returns only the column names used for trace decoding as an array
 impl TraceAliasConfig {
     pub fn as_array(&self) -> Vec<String> {
-        // excluding the selector and address column because it is not used in the trace decoding
         vec![self.action_input.clone(), self.result_output.clone()]
     }
 }
 
+/// Data type specifications (hexstring or binary) for trace fields
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct TraceDatatypeConfig {
     pub selector: DataType,
@@ -155,18 +183,28 @@ pub struct TraceDatatypeConfig {
     pub action_to: DataType,
 }
 
+/// Returns the data types for all trace fields as an array
 impl TraceDatatypeConfig {
     pub fn as_array(&self) -> Vec<DataType> {
         vec![self.selector.clone(), self.action_input.clone(), self.result_output.clone(), self.action_to.clone()]
     }
 }
 
+/// Enum for the different data types (binary or hexstring) for log and trace fields
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub enum DataType {
     Binary,
     HexString
 }
 
+/// Static configuration for the Glaciers component 
+/// 
+/// This is the default configuration for Glaciers.
+/// 
+/// It is a lazy lock to ensure that the configuration is thread safe.
+/// 
+/// It is initialized with the default values for all the configuration fields.
+/// 
 pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
     RwLock::new(Config {
         glaciers: GlaciersConfig {
@@ -232,6 +270,7 @@ pub static GLACIERS_CONFIG: LazyLock<RwLock<Config>> = LazyLock::new(|| {
     })
 });
 
+/// Enum for the different types of values that can be received by the set_config function
 #[derive(Clone, FromPyObject, Debug)]
 pub enum ConfigValue {
     String(String),
@@ -240,42 +279,88 @@ pub enum ConfigValue {
     Boolean(bool)
 }
 
+/// Impl for the From trait for the ConfigValue enum
+/// 
+/// Converts a &str to a ConfigValue::String
+/// 
+/// # Arguments
+/// * `s` - The string to convert to a ConfigValue::String
 impl From<&str> for ConfigValue {
     fn from(s: &str) -> Self {
         ConfigValue::String(s.to_string())
     }
 }
 
+/// Impl for the From trait for the ConfigValue enum
+/// 
+/// Converts a usize to a ConfigValue::Number
+/// 
+/// # Arguments
+/// * `n` - The usize to convert to a ConfigValue::Number
 impl From<usize> for ConfigValue {
     fn from(n: usize) -> Self {
         ConfigValue::Number(n)
     }
 }
 
+/// Impl for the From trait for the ConfigValue enum
+/// 
+/// Converts a `Vec<String>` to a ConfigValue::List
+/// 
+/// # Arguments
+/// * `v` - The `Vec<String>` to convert to a ConfigValue::List
 impl From<Vec<String>> for ConfigValue {
     fn from(v: Vec<String>) -> Self {
         ConfigValue::List(v)
     }
 }
 
+/// Impl for the From trait for the ConfigValue enum
+/// 
+/// Converts a bool to a ConfigValue::Boolean
+/// 
+/// # Arguments
+/// * `b` - The bool to convert to a ConfigValue::Boolean
 impl From<bool> for ConfigValue {
     fn from(b: bool) -> Self {
         ConfigValue::Boolean(b)
     }
 }
 
+/// Get the current configuration of glaciers
+/// 
+/// # Returns
+/// * `Config` - A struct with all the current configurations (like a dictionary)
+/// # Example
+/// ```rust
+/// let config = get_config();
+/// ```
 pub fn get_config() -> Config {
     GLACIERS_CONFIG.read().unwrap().clone()
 }
 
+/// Set a configuration for one item in the configuration.
+/// 
+/// # Arguments
+/// * `config_path` - The path to the configuration field to set. i.e: "glaciers.preferred_dataframe_type"
+/// * `value` - The value to set the configuration field to. i.e: "polars" or "pandas"
+/// 
+/// # Notes
+/// * Some items can receive different types of values (i.e: output_hex_string_encoding can be False/True, 1/0)
+/// * It also does some light transformations to the value, like converting the string to lowercase, for less error prone code.
 pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<(), ConfiggerError> {
     let mut config = GLACIERS_CONFIG.write().unwrap();
+    
+    // Breaks the config_path into sections, fields and subfields.
     let value = value.into();
     let section = config_path.split(".").nth(0).ok_or(ConfiggerError::InvalidFieldOrValue(format!("Section missing in field: {}", config_path.to_string())))?;
     let field = config_path.split(".").nth(1);
     let subfield = config_path.split(".").nth(2);
     let schema_field = config_path.split(".").nth(3);
 
+    // Matches each component of the path to a item in the configuration, and then it sets the value of the corresponding item. 
+    // Some items can receive different types of values (i.e: output_hex_string_encoding can be False/True, 1/0)
+    // It also does some light transformations to the value, like converting the string to lowercase, for less error prone code.
     match section {
         "glaciers" => match (field, value) {
             (Some("preferred_dataframe_type"), ConfigValue::String(v)) => {
@@ -453,7 +538,10 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
     Ok(())
 }
 
-/// Loads and processes a TOML configuration file, setting all valid configurations
+/// Loads and processes a TOML configuration file, calling set_config for each item in the file.
+/// 
+/// # Arguments
+/// * `file_path` - The path to the TOML configuration file
 pub fn set_config_toml(file_path: &str) -> Result<(), ConfiggerError> {
     // Read and parse TOML file into toml::Value
     let config: toml::Value = fs::read_to_string(file_path)
@@ -472,7 +560,12 @@ pub fn set_config_toml(file_path: &str) -> Result<(), ConfiggerError> {
     }
     Ok(())
  }
- 
+
+ /// Processes nested tables of a TOML file, returning a vector of key-value pairs.
+ /// 
+ /// # Arguments
+ /// * `prefix` - The prefix to add to the key
+ /// * `table` - The table to process
  fn process_table(prefix: &str, table: &toml::Table) -> Result<Vec<(String, ConfigValue)>, ConfiggerError> {
     let mut config_pairs = Vec::new();
     
@@ -501,6 +594,7 @@ pub fn set_config_toml(file_path: &str) -> Result<(), ConfiggerError> {
                     .collect();
                 config_pairs.push((full_key.clone(), ConfigValue::List(string_vec?)));
             },
+            // Convert boolean to bool
             toml::Value::Boolean(b) => config_pairs.push((full_key, ConfigValue::Boolean(*b))),
 
             // Return error for unsupported types
@@ -513,6 +607,10 @@ pub fn set_config_toml(file_path: &str) -> Result<(), ConfiggerError> {
 
  //Validations:
 
+ /// Validates the unique_key field.
+ /// 
+ /// # Arguments
+ /// * `unique_key` - The unique_key to validate
  fn validate_unique_key(unique_key: &Vec<String>) -> Result<(), ConfiggerError> {
     let allowed_keys = ["hash", "full_signature", "address"];
     for key in unique_key {
@@ -523,6 +621,10 @@ pub fn set_config_toml(file_path: &str) -> Result<(), ConfiggerError> {
     Ok(())
  }
 
+ /// Validates the output_file_format field.
+ /// 
+ /// # Arguments
+ /// * `output_file_format` - The output_file_format to validate
  fn validate_output_file_format(output_file_format: &String) -> Result<(), ConfiggerError> {
     let allowed_formats = ["csv", "parquet"];
     if !allowed_formats.contains(&output_file_format.as_str()) {

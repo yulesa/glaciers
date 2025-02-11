@@ -1,13 +1,34 @@
+//! Matching module for associating logs and traces with ABI item signatures.
+//! 
+//! This module provides functionality to match Ethereum logs and traces with their corresponding
+//! ABI signatures using various matching strategies. It supports matching by topic0/4bytes signatures
+//! with and without address verification.
+
 use polars::prelude::*;
 use thiserror::Error;
 use crate::configger::get_config;
 
+/// Errors that can occur during the matching process
 #[derive(Error, Debug)]
 pub enum MatcherError {
+    /// Wraps errors from the Polars library
     #[error("Polars error: {0}")]
     PolarsError(#[from] PolarsError),
 }
 
+/// Matches logs with ABI signatures using both topic0 and contract address.
+///
+/// This function performs a left join between logs and ABI signatures, matching on:
+/// - topic0 (event signature hash)
+/// - contract address
+/// - number of indexed arguments
+///
+/// # Arguments
+/// * `log_df` - DataFrame containing log entries
+/// * `abi_df` - DataFrame containing ABI signatures
+///
+/// # Returns
+/// * `Result<DataFrame>` - Joined DataFrame with matched signatures, or error
 pub fn match_logs_by_topic0_address(log_df: DataFrame, abi_df: DataFrame) -> Result<DataFrame, MatcherError> {
     let topic0_alias = get_config().log_decoder.log_schema.log_alias.topic0;
     let address_alias = get_config().log_decoder.log_schema.log_alias.address;
@@ -30,6 +51,17 @@ pub fn match_logs_by_topic0_address(log_df: DataFrame, abi_df: DataFrame) -> Res
     Ok(logs_left_join_abi_df)
 }
 
+/// Matches logs with ABI signatures using a two-step matching process.
+///
+/// First attempts to match logs using both topic0 and address. For unmatched logs,
+/// tries matching only by topic0 using the most frequent signature in the database for each hash.
+///
+/// # Arguments
+/// * `log_df` - DataFrame containing log entries
+/// * `abi_df` - DataFrame containing ABI signatures
+///
+/// # Returns
+/// * `Result<DataFrame>` - DataFrame with matched signatures, or error
 pub fn match_logs_by_topic0(log_df: DataFrame, abi_df: DataFrame) -> Result<DataFrame, MatcherError> {
     let logs_1 = match_logs_by_topic0_address(log_df.clone(), abi_df.clone())?;
     let log_df_cols: Vec<Expr> = log_df.get_columns().iter().map(|s| col(s.name())).collect();
@@ -76,6 +108,17 @@ pub fn match_logs_by_topic0(log_df: DataFrame, abi_df: DataFrame) -> Result<Data
     Ok(logs_df)
 }
 
+/// Matches traces with ABI signatures using function selector and contract address.
+///
+/// Performs a left join between traces and ABI signatures based on the 4-byte function
+/// selector and the contract address.
+///
+/// # Arguments
+/// * `trace_df` - DataFrame containing trace entries
+/// * `abi_df` - DataFrame containing ABI signatures
+///
+/// # Returns
+/// * `Result<DataFrame>` - Joined DataFrame with matched signatures, or error
 pub fn match_traces_by_4bytes_address(trace_df: DataFrame, abi_df: DataFrame) -> Result<DataFrame, MatcherError> {
     let selector_alias = get_config().trace_decoder.trace_schema.trace_alias.selector;
     let action_to = get_config().trace_decoder.trace_schema.trace_alias.action_to;
@@ -93,6 +136,17 @@ pub fn match_traces_by_4bytes_address(trace_df: DataFrame, abi_df: DataFrame) ->
     Ok(traces_left_join_abi_df)
 }
 
+/// Matches traces with ABI signatures using a two-step matching process.
+///
+/// First attempts to match traces using both 4-byte selector and address. For unmatched traces,
+/// tries matching only by 4-byte selector using the most frequent signature for each hash.
+///
+/// # Arguments
+/// * `trace_df` - DataFrame containing trace entries
+/// * `abi_df` - DataFrame containing ABI signatures
+///
+/// # Returns
+/// * `Result<DataFrame>` - DataFrame with matched signatures, or error
 pub fn match_traces_by_4bytes(trace_df: DataFrame, abi_df: DataFrame) -> Result<DataFrame, MatcherError> {
     let traces_1 = match_traces_by_4bytes_address(trace_df.clone(), abi_df.clone())?;
     let trace_df_cols: Vec<Expr> = trace_df.get_columns().iter().map(|s| col(s.name())).collect();

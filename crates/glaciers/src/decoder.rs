@@ -1,3 +1,12 @@
+//! Module for the high level processing and decoding blockchain data.
+//! 
+//! This module provides functionality to:
+//! - Decode a folder of logs/traces
+//! - Decode a single log/trace file
+//! - Decode a DataFrame of logs/traces using an ABI database file path
+//! - Decode a DataFrame of logs/traces using a pre-loaded ABI DataFrame
+//! - Split logs/traces DF in chunks, decode logs/traces, collect and union results and save in the decoded folder
+
 use chrono::Local;
 use polars::prelude::*;
 use serde::Serialize;
@@ -13,7 +22,7 @@ use crate::utils;
 use crate::log_decoder;
 use crate::trace_decoder;
 
-
+/// Error types that can occur during decoding operations
 #[derive(Error, Debug)]
 pub enum DecoderError {
     #[error("Decoding error: {0}")]
@@ -28,6 +37,10 @@ pub enum DecoderError {
     JoinError(#[from] tokio::task::JoinError)
 }
 
+/// Represents a structured parameter from decoded data
+/// 
+/// Contains the name, position, type and value of a decoded parameter
+/// This is each item of event_json (logs) or input_json/output_json (traces)
 #[derive(Debug, Serialize)]
 pub struct StructuredParam {
     pub name: String,
@@ -36,12 +49,47 @@ pub struct StructuredParam {
     pub value: String,
 }
 
+/// Specifies the source type of blockchain data to decode
 #[derive(Debug, Clone)]
 pub enum DecoderType {
+    /// Event logs source data
     Log,
+    /// Transaction traces source data
     Trace,
 }
 
+/// Decodes all files in a folder. It spawns a task for each file to parallelize the decoding process.
+/// Decoded files are saved in a "decoded" folder, in the parent folder of the raw data.
+/// The file name is the same as the raw file name, but with the "logs" or "traces" replaced with "decoded_logs" or "decoded_traces".
+///
+/// # Arguments
+/// * `folder_path` - Path to folder containing files to decode
+/// * `abi_db_path` - Path to ABI database file
+/// * `decoder_type` - Type of data to decode (Log or Trace)
+///
+/// # Returns
+/// * `Ok(())` if all files were processed successfully. Succeful return is empty, since multiple files are decoded in parallel.
+/// * `Err(DecoderError)` if any file fails to process
+/// 
+/// 
+/// # Notes
+/// This function gets the max_concurrent_files_decoding from the config and uses it
+/// to limit the number of concurrent files that can be decoded at the same time.
+///
+/// # Example
+/// ```no_run
+/// use glaciers::decoder::{decode_folder, DecoderType};
+/// 
+/// #[tokio::main]
+/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     decode_folder(
+///         "path/to/folder".to_string(),
+///         "path/to/abi_db.parquet".to_string(),
+///         DecoderType::Log
+///     ).await?;
+///     Ok(())
+/// }
+/// ```
 pub async fn decode_folder(
     folder_path: String,
     abi_db_path: String,
@@ -92,6 +140,21 @@ pub async fn decode_folder(
     Ok(())
 }
 
+/// Decodes a single file using the specified ABI database
+/// Decoded file is saved in a "decoded" folder, in the parent folder of the raw data.
+/// The file name is the same as the raw file name, but with the "logs" or "traces" replaced with "decoded_logs" or "decoded_traces".
+/// 
+/// # Arguments
+/// * `file_path` - Path to file to decode
+/// * `abi_db_path` - Path to ABI database file
+/// * `decoder_type` - Type of data to decode (Log or Trace)
+///
+/// # Returns
+/// * `Ok(DataFrame)` containing decoded data
+/// * `Err(DecoderError)` if decoding fails
+///
+/// # Notes
+/// The output format (binary/hex) of some columns is determined by configuration.
 pub async fn decode_file(
     file_path: PathBuf,
     abi_db_path: String,
@@ -170,7 +233,17 @@ pub async fn decode_file(
     Ok(decoded_df)
 }
 
-pub async fn decode_df (
+/// Decodes a logs/traces DataFrame using an ABI database file path
+///
+/// # Arguments
+/// * `df` - DataFrame containing raw blockchain data
+/// * `abi_db_path` - Path to ABI database file
+/// * `decoder_type` - Type of data to decode
+///
+/// # Returns
+/// * `Ok(DataFrame)` containing decoded data
+/// * `Err(DecoderError)` if decoding fails
+pub async fn decode_df(
     df: DataFrame,
     abi_db_path: String,
     decoder_type: DecoderType,
@@ -181,6 +254,19 @@ pub async fn decode_df (
     decode_df_with_abi_df(df, abi_df, decoder_type).await
 }
 
+/// Decodes a logs/traces DataFrame using a pre-loaded ABI DataFrame
+///
+/// # Arguments
+/// * `df` - DataFrame containing raw blockchain data
+/// * `abi_df` - DataFrame containing ABI definitions
+/// * `decoder_type` - Type of data to decode
+///
+/// # Returns
+/// * `Ok(DataFrame)` containing decoded data
+/// * `Err(DecoderError)` if decoding fails
+/// 
+/// # Notes
+/// The function gets the matching algorithm from the config and uses it to join the logs/traces with ABI itens.
 pub async fn decode_df_with_abi_df(
     df: DataFrame,
     abi_df: DataFrame,
@@ -205,7 +291,22 @@ pub async fn decode_df_with_abi_df(
     decode(matched_df, decoder_type).await
 }
 
-pub async fn decode(df: DataFrame, decoder_type: DecoderType) -> Result<DataFrame, DecoderError> {
+/// Handles the decoding of matched logs/traces with ABI itens. It spawns a thread for each chunk to parallelize the decoding process.
+///
+/// # Arguments
+/// * `df` - DataFrame containing matched logs/traces and ABI itens
+/// * `decoder_type` - Type of data to decode
+///
+/// # Returns
+/// * `Ok(DataFrame)` containing all decoded chunks combined
+/// * `Err(DecoderError)` if decoding fails
+/// 
+/// # Notes
+/// The function gets the decoded_chunk_size from the config and uses it to split the DataFrame in chunks.
+/// It also gets the max_chunk_threads_per_file from the config and uses it to limit the number 
+/// of parallel threads that can be used to decode each chunk.
+/// Total number of threads can be a max of max_chunk_threads_per_file * max_concurrent_files_decoding.
+async fn decode(df: DataFrame, decoder_type: DecoderType) -> Result<DataFrame, DecoderError> {
     // Create a semaphore with MAX_THREAD_NUMBER permits
     let semaphore = Arc::new(Semaphore::new(get_config().decoder.max_chunk_threads_per_file));
     // Create a channel to communicate tasks results
@@ -278,6 +379,14 @@ pub async fn decode(df: DataFrame, decoder_type: DecoderType) -> Result<DataFram
     union_dataframes(collected_dfs).await
 }
 
+/// Auxiliary function to combine multiple DataFrames into a single DataFrame
+///
+/// # Arguments
+/// * `dfs` - Vector of DataFrames to combine
+///
+/// # Returns
+/// * `Ok(DataFrame)` containing all input DataFrames combined
+/// * `Err(DecoderError)` if union operation fails
 async fn union_dataframes(dfs: Vec<DataFrame>) -> Result<DataFrame, DecoderError> {
     // If only one DataFrame, return it directly
     if dfs.len() == 1 {
