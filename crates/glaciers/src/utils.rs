@@ -6,6 +6,9 @@
 //!  - binary_columns_to_hex_string: Converts binary columns to hex string columns.
 //!  - hex_string_columns_to_binary: Converts hex string columns to binary columns.
 //!  - abi_df_hex_string_columns_to_binary: Converts hex string columns to binary columns in an ABI DataFrame.
+//!  - read_df_file: Reads a DataFrame from a file.
+//!  - write_df_file: Writes a DataFrame to a file.
+//!  - StrDynSolValue: A wrapper type around DynSolValue, to implement to_string function.  
 
 use std::{ffi::OsStr, fs::File, path::Path};
 use polars::{error::ErrString, prelude::*};

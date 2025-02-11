@@ -133,6 +133,10 @@ The second set of columns belongs to the decoded logs/traces:
     - ('output_keys', String):      '["success"]'
     - ('output_json', String):      '[{"name":"success","index":0,"value_type":"bool","value":"True"}]'
 
+## Project Structure
+
+Visit [Project Structure](./docs/repo_structure.md) guide.
+
 ## Roadmap
 
 Visit [Roadmap](./docs/roadmap.md) guide.
