@@ -10,13 +10,16 @@ Our goal is to develop Glaciers into a robust and efficient solution for decodin
 - [x] Add support for Pandas DataFrames.
 - [x] Add an extra algo for contract match before hash match.
 - [x] Add single-contract log decoding functions.
-- [ ] Package Glaciers as a Polars plugin, enabling Python commands like `df.glaciers.decode_events()`.
 - [x] Add generalized "function call" decoding to support algorithmic trace decoding.
 - [x] Create an unnest function.
-- [ ] Document the repository structure to facilitate contributions.
+- [x] Document the repository structure to facilitate contributions.
 - [x] Develop example files to guide new users in using Glaciers.
 
 ## What did you get done this week:
+
+### 2025-02-07
+- Add support for trace decoding.
+- Separete evt & func DB and abi_reader.
 
 ### 2025-01-31
 - Created a simple CLI for Glaciers.
