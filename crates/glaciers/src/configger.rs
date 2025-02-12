@@ -371,6 +371,13 @@ pub fn set_config(config_path: &str, value: impl Into<ConfigValue>) -> Result<()
                 }
             },
             (Some("unnesting_hex_string_encoding"), ConfigValue::Boolean(v)) => config.glaciers.unnesting_hex_string_encoding = v,
+            (Some("unnesting_hex_string_encoding"), ConfigValue::Number(v)) => {
+                match v {
+                    1 => config.glaciers.unnesting_hex_string_encoding = true,
+                    0 => config.glaciers.unnesting_hex_string_encoding = false,
+                    _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
+                }
+            },
             _ => return Err(ConfiggerError::InvalidFieldOrValue(field.unwrap_or("").to_string()))
         },
         "main" => match (field, value) {

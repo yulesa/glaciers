@@ -46,6 +46,7 @@ from ._decode_df_with_abi_df import async_decode_df_with_abi_df
 from ._decode_df_with_abi_df import decode_df_with_abi_df
 from ._decode_df_using_single_contract import decode_df_using_single_contract
 from ._unnest import unnest_event
+from ._unnest import unnest_trace
 
 def get_config() -> str:
     """Get the current Glaciers configuration as a TOML string.
@@ -115,5 +116,6 @@ __all__ = [
     'get_config',
     'set_config',
     'set_config_toml',
-    'unnest_event'
+    'unnest_event',
+    'unnest_trace'
 ]
