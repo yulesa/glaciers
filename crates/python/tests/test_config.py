@@ -59,21 +59,99 @@ def test_set_config_toml():
 
 def test_set_config():
     """Test setting individual configuration values"""
-    # Test setting single values
+    set_config("glaciers.preferred_dataframe_type", "polars")
     set_config("glaciers.preferred_dataframe_type", "pandas")
-    config = get_config()
-    config = toml.loads(config)
-    assert config["glaciers"]["preferred_dataframe_type"] == "Pandas"
-
-    set_config("decoder.max_concurrent_files_decoding", 4)
-    config = get_config()
-    config = toml.loads(config)
-    assert config["decoder"]["max_concurrent_files_decoding"] == 4
-
+    set_config("glaciers.unnesting_hex_string_encoding", False)
+    set_config("glaciers.unnesting_hex_string_encoding", True)
+    set_config("glaciers.unnesting_hex_string_encoding", 0)
+    set_config("glaciers.unnesting_hex_string_encoding", 1)
+    set_config("main.events_abi_db_file_path", "ABIs/ethereum__abis.parquet")
+    set_config("main.functions_abi_db_file_path", "ABIs/ethereum__abis.parquet")
+    set_config("main.abi_folder_path", "ABIs")
+    set_config("main.raw_logs_folder_path", "data")
+    set_config("main.raw_traces_folder_path", "data")
+    set_config("abi_reader.abi_read_mode", "Events")
+    set_config("abi_reader.abi_read_mode", "Functions")
+    set_config("abi_reader.abi_read_mode", "Both")
+    set_config("abi_reader.output_hex_string_encoding", False)
+    set_config("abi_reader.output_hex_string_encoding", True)
+    set_config("abi_reader.output_hex_string_encoding", 0)
+    set_config("abi_reader.output_hex_string_encoding", 1)
+    set_config("abi_reader.unique_key", ["hash", "full_signature", "address"])
+    set_config("abi_reader.unique_key", ["hash", "full_signature"])
+    set_config("abi_reader.unique_key", "hash")
+    set_config("abi_reader.unique_key", "full_signature")
+    set_config("abi_reader.unique_key", "address")
+    set_config("decoder.algorithm", "Hash")
+    set_config("decoder.algorithm", "Hash_Address")
+    set_config("decoder.output_hex_string_encoding", False)
     set_config("decoder.output_hex_string_encoding", True)
+    set_config("decoder.output_hex_string_encoding", 0)
+    set_config("decoder.output_hex_string_encoding", 1)
+    set_config("decoder.output_file_format", "parquet")
+    set_config("decoder.output_file_format", "csv")
+    set_config("decoder.max_concurrent_files_decoding", 1)
+    set_config("decoder.max_chunk_threads_per_file", 1)
+    set_config("decoder.decoded_chunk_size", 1)
+    set_config("log_decoder.log_schema.log_alias.topic0", "t0")
+    set_config("log_decoder.log_schema.log_alias.topic1", "t1")
+    set_config("log_decoder.log_schema.log_alias.topic2", "t2")
+    set_config("log_decoder.log_schema.log_alias.topic3", "t3")
+    set_config("log_decoder.log_schema.log_alias.data", "d")
+    set_config("log_decoder.log_schema.log_alias.address", "event_address")
+    set_config("log_decoder.log_schema.log_datatype.topic0", "HexString")
+    set_config("log_decoder.log_schema.log_datatype.topic1", "HexString")
+    set_config("log_decoder.log_schema.log_datatype.topic2", "HexString")
+    set_config("log_decoder.log_schema.log_datatype.topic3", "HexString")
+    set_config("log_decoder.log_schema.log_datatype.data", "HexString")
+    set_config("log_decoder.log_schema.log_datatype.address", "HexString")
+    set_config("trace_decoder.trace_schema.trace_alias.selector", "4bytes")
+    set_config("trace_decoder.trace_schema.trace_alias.action_input", "input")
+    set_config("trace_decoder.trace_schema.trace_alias.result_output", "output")
+    set_config("trace_decoder.trace_schema.trace_alias.action_to", "to")
+    set_config("trace_decoder.trace_schema.trace_datatype.selector", "HexString")
+    set_config("trace_decoder.trace_schema.trace_datatype.action_input", "HexString")
+    set_config("trace_decoder.trace_schema.trace_datatype.result_output", "HexString")
+    set_config("trace_decoder.trace_schema.trace_datatype.action_to", "HexString")
+    expected_config = '''
+        [glaciers]
+        preferred_dataframe_type = "Pandas"
+        unnesting_hex_string_encoding = true
+
+        [main]
+        events_abi_db_file_path = "ABIs/ethereum__abis.parquet"
+        functions_abi_db_file_path = "ABIs/ethereum__abis.parquet"
+        abi_folder_path = "ABIs"
+        raw_logs_folder_path = "data"
+        raw_traces_folder_path = "data"
+
+        [abi_reader]
+        abi_read_mode = "Both"
+        output_hex_string_encoding = true
+        unique_key = ["address"]
+
+        [decoder]
+        algorithm = "HashAddress"
+        output_hex_string_encoding = true
+        output_file_format = "csv"
+        max_concurrent_files_decoding = 1
+        max_chunk_threads_per_file = 1
+        decoded_chunk_size = 1
+
+        [log_decoder.log_schema]
+        log_alias = { topic0 = "t0", topic1 = "t1", topic2 = "t2", topic3 = "t3", data = "d", address = "event_address" }
+        log_datatype = { topic0 = "HexString", topic1 = "HexString", topic2 = "HexString", topic3 = "HexString", data = "HexString", address = "HexString" }
+
+        [trace_decoder.trace_schema]
+        trace_alias = { selector = "4bytes", action_input = "input", result_output = "output", action_to = "to" }
+        trace_datatype = { selector = "HexString", action_input = "HexString", result_output = "HexString", action_to = "HexString" }
+    '''
+    expected_config = toml.loads(expected_config)
     config = get_config()
     config = toml.loads(config)
-    assert config["decoder"]["output_hex_string_encoding"] == True
+    print(config)
+    print(expected_config)
+    assert config == expected_config
 
 def test_invalid_config():
     """Test error handling for invalid configurations"""
@@ -90,18 +168,3 @@ def test_invalid_config():
         config = get_config()
         config = toml.loads(config)
         assert config["glaciers"]["preferred_dataframe_type"] == "invalid"
-
-def test_nested_config():
-    """Test getting nested configuration values"""
-    # Test getting nested schema values
-    config = get_config()
-    config = toml.loads(config)
-    log_alias = config["log_decoder"]["log_schema"]["log_alias"]
-    assert log_alias["topic0"] == "topic0"
-    assert log_alias["data"] == "data"
-
-    config = get_config()
-    config = toml.loads(config)
-    trace_datatype = config["trace_decoder"]["trace_schema"]["trace_datatype"]
-    assert trace_datatype["selector"] == "Binary"
-    assert trace_datatype["action_input"] == "Binary" 
