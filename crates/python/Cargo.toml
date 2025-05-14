@@ -22,3 +22,4 @@ toml = { workspace = true }
 pyo3 = { workspace = true }
 pyo3-polars = { workspace = true }
 pyo3-asyncio = { workspace = true }
+openssl = { workspace = true }
