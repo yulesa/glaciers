@@ -1,5 +1,5 @@
 //! Trace decoder module have the functions that are specific to decode traces.
-//! 
+//!
 //! This module provides functions to:
 //! - Run through a DataFrame of traces calling the UDF (User Defined Function) each line
 //! - A UDF to decode a single trace line into a 6 parts string separated by ;
@@ -21,7 +21,7 @@ pub enum TraceDecoderError {
     #[error("Trace decoder error: {0}")]
     DecodingError(String),
     #[error("Polars error: {0}")]
-    PolarsError(#[from] PolarsError),   
+    PolarsError(#[from] PolarsError),
 }
 
 /// Internal structure to hold each part of the decoded function
@@ -30,7 +30,7 @@ struct ExtDecodedFunction {
     input_keys: Vec<String>,
     input_json: String,
     output_values: Vec<String>,
-    output_keys: Vec<String>, 
+    output_keys: Vec<String>,
     output_json: String,
 }
 
@@ -46,7 +46,7 @@ struct ExtDecodedFunction {
 ///   - input_keys: Array of input parameter names
 ///   - input_json: JSON string representation of decoded inputs
 ///   - output_values: Array of decoded output parameter values
-///   - output_keys: Array of output parameter names  
+///   - output_keys: Array of output parameter names
 ///   - output_json: JSON string representation of decoded outputs
 ///
 /// # Notes
@@ -56,59 +56,61 @@ pub fn polars_decode_traces(df: DataFrame) -> Result<DataFrame, DecoderError> {
 
     // using the alias to select columns that will be used in the decode_trace_udf
     // as_array() is excluding the selector and address column because it is not used in the trace decoding
-    let mut alias_exprs: Vec<Expr> = input_schema_alias.as_array()
+    let mut alias_exprs: Vec<Expr> = input_schema_alias
+        .as_array()
         .iter()
         .map(|alias| col(alias.as_str()).alias(alias.as_str()))
         .collect();
     alias_exprs.push(col("full_signature").alias("full_signature"));
-    
+
     // as_struct() passes the selected columns to the decode_trace_udf and returns a column decoded_trace of type String
     // decoded_trace column is then split into 6 columns separated by the ; character
     let decoded_df = df
         .lazy()
         .with_columns([as_struct(alias_exprs)
-            .map(decode_trace_udf, GetOutput::from_type(DataType::String))
-            .alias("decoded_trace")
-        ])
+            .map(decode_trace_udf, |_schema: &Schema, input_field: &Field| {
+                Ok(Field::new(input_field.name().clone(), DataType::String))
+            })
+            .alias("decoded_trace")])
         .with_columns([
             col("decoded_trace")
                 .str()
                 .split(lit(";"))
                 .list()
-                .get(lit(0))
+                .get(lit(0), true)
                 .alias("input_values"),
             col("decoded_trace")
                 .str()
                 .split(lit(";"))
                 .list()
-                .get(lit(1))
+                .get(lit(1), true)
                 .alias("input_keys"),
             col("decoded_trace")
                 .str()
                 .split(lit(";"))
                 .list()
-                .get(lit(2))
+                .get(lit(2), true)
                 .alias("input_json"),
             col("decoded_trace")
                 .str()
                 .split(lit(";"))
                 .list()
-                .get(lit(3))
+                .get(lit(3), true)
                 .alias("output_values"),
             col("decoded_trace")
                 .str()
                 .split(lit(";"))
                 .list()
-                .get(lit(4))
+                .get(lit(4), true)
                 .alias("output_keys"),
             col("decoded_trace")
                 .str()
                 .split(lit(";"))
                 .list()
-                .get(lit(5))
-                .alias("output_json")
+                .get(lit(5), true)
+                .alias("output_json"),
         ])
-        .select([col("*").exclude(["decoded_trace"])])
+        .select([(all() - by_name(vec!["decoded_trace"], true, false)).as_expr()])
         .collect()?;
 
     Ok(if get_config().decoder.output_hex_string_encoding {
@@ -127,9 +129,9 @@ pub fn polars_decode_traces(df: DataFrame) -> Result<DataFrame, DecoderError> {
 /// If successful, a Series containing decoded trace in a string format, separated by ;
 ///   "input_values";"input_keys";"input_json";"output_values";"output_keys";"output_json"
 ///
-fn decode_trace_udf(s: Series) -> PolarsResult<Option<Series>> {
+fn decode_trace_udf(s: Column) -> PolarsResult<Column> {
     let series_struct_array: &StructChunked = s.struct_()?;
-    let fields = series_struct_array.fields();
+    let fields = series_struct_array.fields_as_series();
 
     //extract input, output and signature from the df struct arrays
     let traces_data = extract_trace_fields(&fields)?;
@@ -141,7 +143,7 @@ fn decode_trace_udf(s: Series) -> PolarsResult<Option<Series>> {
             decode(input, output, func_sig)
                 .map(|func| {
                     format!(
-                        "{:?}; {:?}; {}; {:?}; {:?}; {}", 
+                        "{:?}; {:?}; {}; {:?}; {:?}; {}",
                         func.input_values,
                         func.input_keys,
                         func.input_json,
@@ -154,7 +156,7 @@ fn decode_trace_udf(s: Series) -> PolarsResult<Option<Series>> {
         })
         .collect();
 
-    Ok(Some(udf_output.into_series()))
+    Ok(udf_output.into_column())
 }
 
 /// Extracts each trace field necessary for decoding from an array of Series.
@@ -185,8 +187,7 @@ fn extract_trace_fields(fields: &[Series]) -> PolarsResult<Vec<(&[u8], &[u8], &s
             let sigs = opt_sig.unwrap_or("");
 
             Ok((inputs, outputs, sigs))
-        }
-        )
+        })
         .collect()
 }
 
@@ -194,7 +195,7 @@ fn extract_trace_fields(fields: &[Series]) -> PolarsResult<Vec<(&[u8], &[u8], &s
 ///
 /// # Arguments
 /// * `input` - Raw input data as bytes
-/// * `output` - Raw output data as bytes  
+/// * `output` - Raw output data as bytes
 /// * `full_signature` - Function signature string
 ///
 /// # Returns
@@ -216,12 +217,12 @@ fn decode(
 
     // Decode input data calling the alloy abi_decode_input function
     let decoded_input = function_obj
-        .abi_decode_input(input, true)
+        .abi_decode_input(input)
         .map_err(|e| TraceDecoderError::DecodingError(e.to_string()))?;
 
-    // Decode output data calling the alloy abi_decode_output function  
+    // Decode output data calling the alloy abi_decode_output function
     let decoded_output = function_obj
-        .abi_decode_output(output, true)
+        .abi_decode_output(output)
         .map_err(|e| TraceDecoderError::DecodingError(e.to_string()))?;
 
     // Map function inputs and values to structured format
@@ -245,11 +246,19 @@ fn decode(
     // Convert values to strings
     let input_values: Vec<String> = decoded_input
         .iter()
-        .map(|d| utils::StrDynSolValue::from(d.clone()).to_string().unwrap_or("None".to_string()))
+        .map(|d| {
+            utils::StrDynSolValue::from(d.clone())
+                .to_string()
+                .unwrap_or("None".to_string())
+        })
         .collect();
     let output_values: Vec<String> = decoded_output
         .iter()
-        .map(|d| utils::StrDynSolValue::from(d.clone()).to_string().unwrap_or("None".to_string()))
+        .map(|d| {
+            utils::StrDynSolValue::from(d.clone())
+                .to_string()
+                .unwrap_or("None".to_string())
+        })
         .collect();
 
     Ok(ExtDecodedFunction {
@@ -263,7 +272,7 @@ fn decode(
 }
 
 /// Maps function signature parameters names to their corresponding decoded values.
-/// This function is necessary because the source of param values (output of decode_input/decode_output) 
+/// This function is necessary because the source of param values (output of decode_input/decode_output)
 /// is different from the source of param names (Signature - Function Object), and we want to keep them in the same order.
 ///
 /// # Arguments

@@ -14,12 +14,12 @@ path = "rust_src/lib.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-glaciers = { workspace = true }
+glaciers = { workspace = true, features = ["python"]}
 polars = { workspace = true }
 alloy = { workspace = true }
 serde_json = { workspace = true }
 toml = { workspace = true }
-pyo3 = { workspace = true }
-pyo3-polars = { workspace = true }
-pyo3-asyncio = { workspace = true }
 openssl = { workspace = true }
+pyo3 = { version = "0.27.0", features = ["extension-module"] }
+pyo3-polars = "0.26.0"
+pyo3-async-runtimes = { version = "0.27.0", features = ["tokio-runtime"] }

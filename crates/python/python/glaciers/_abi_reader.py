@@ -1,9 +1,9 @@
-import toml 
+import toml
 from ._dataframe_utils import DataFrameType, to_prefered_type
 from . import _glaciers_python
 from glaciers import get_config
 
-def update_abi_db(abi_db_path: str | None = None, 
+def update_abi_db(abi_db_path: str | None = None,
                  abi_folder_path: str | None = None) -> DataFrameType:
     """Updates the ABI DB file with new ABIs from the specified folder.
 
@@ -23,7 +23,7 @@ def update_abi_db(abi_db_path: str | None = None,
         ```python
         # Update using default paths from config
         df = update_abi_db()
-        
+
         # Update using custom paths
         df = update_abi_db("ABIs/ethereum__events__abis.parquet", "ABIs/abi_database")
         ```
@@ -50,7 +50,7 @@ def read_new_abi_folder(abi_folder_path: str | None = None) -> DataFrameType:
         ```python
         # Read from default folder specified in config
         df = read_new_abi_folder()
-        
+
         # Read from custom folder
         df = read_new_abi_folder("ABIs/abi_database")
         ```

@@ -1,5 +1,5 @@
 //! Module for reading and processing EVM ABIs for Glaciers.
-//! 
+//!
 //! This module provides functions to:
 //! - Maintain a database of ABI signatures
 //! - Read through ABI files in a directory
@@ -8,15 +8,18 @@
 //! - Extract function and event signatures
 //! - Convert ABI data into a structured DataFrame format
 
-use std::path::PathBuf;
-use std::{str::FromStr, path::Path};
-use std::fs;
-use alloy::{json_abi::JsonAbi, primitives::{Address, FixedBytes}};
-use polars::prelude::*;
+use alloy::{
+    json_abi::JsonAbi,
+    primitives::{Address, FixedBytes},
+};
 use chrono::Local;
+use polars::prelude::*;
+use std::fs;
+use std::path::PathBuf;
+use std::{path::Path, str::FromStr};
 use thiserror::Error;
 
-use crate::configger::{self, get_config}; 
+use crate::configger::{self, get_config};
 use crate::utils;
 
 /// Errors that can occur during ABI reading and processing
@@ -34,7 +37,7 @@ pub enum AbiReaderError {
     InvalidConfig(String),
 }
 /// Represents a row in the ABI database containing function or event information.
-/// 
+///
 /// # Fields
 /// * `address` - The address of the contract
 /// * `hash` - The hash of the function or event signature. Topic0 for events, selector(4bytes) for functions.
@@ -52,7 +55,7 @@ pub struct AbiItemRow {
     name: String,
     anonymous: Option<bool>,
     num_indexed_args: Option<usize>,
-    state_mutability : Option<String>,
+    state_mutability: Option<String>,
     id: String,
 }
 
@@ -60,7 +63,7 @@ pub struct AbiItemRow {
 #[derive(Debug, Clone)]
 enum Hash {
     Hash32(FixedBytes<32>), // Event topic hash
-    Hash4(FixedBytes<4>)    // Function selector
+    Hash4(FixedBytes<4>),   // Function selector
 }
 
 impl Hash {
@@ -90,22 +93,28 @@ impl Hash {
 ///     "path/to/abi/folder".to_string()
 /// );
 /// ```
-pub fn update_abi_db(abi_db_path: String, abi_folder_path: String) -> Result<DataFrame, AbiReaderError> {
+pub fn update_abi_db(
+    abi_db_path: String,
+    abi_folder_path: String,
+) -> Result<DataFrame, AbiReaderError> {
     let path = Path::new(&abi_db_path);
     let existing_df = if path.exists() {
         utils::read_df_file(path)?
     } else {
         // Create a empty dataframe with a schema so joins don't fail for missing id field.
-        DataFrame::new(vec![
-            Series::new_empty("address", &DataType::String),
-            Series::new_empty("hash", &DataType::Binary),
-            Series::new_empty("full_signature", &DataType::String),
-            Series::new_empty("name", &DataType::String),
-            Series::new_empty("anonymous", &DataType::Boolean),
-            Series::new_empty("num_indexed_args", &DataType::Int8),
-            Series::new_empty("state_mutability", &DataType::String),
-            Series::new_empty("id", &DataType::String),
-        ])?
+        DataFrame::new(
+            0,
+            vec![
+                Column::new_empty("address".into(), &DataType::String),
+                Column::new_empty("hash".into(), &DataType::Binary),
+                Column::new_empty("full_signature".into(), &DataType::String),
+                Column::new_empty("name".into(), &DataType::String),
+                Column::new_empty("anonymous".into(), &DataType::Boolean),
+                Column::new_empty("num_indexed_args".into(), &DataType::Int8),
+                Column::new_empty("state_mutability".into(), &DataType::String),
+                Column::new_empty("id".into(), &DataType::String),
+            ],
+        )?
     };
 
     let new_df = read_new_abi_folder(&abi_folder_path)?;
@@ -113,7 +122,9 @@ pub fn update_abi_db(abi_db_path: String, abi_folder_path: String) -> Result<Dat
         &existing_df,
         ["id"],
         ["id"],
-        JoinArgs::new(JoinType::Anti))?;
+        JoinArgs::new(JoinType::Anti),
+        None,
+    )?;
     if diff_df.height() == 0 {
         println!(
             "[{}] No new event signatures found in the scanned files.",
@@ -150,15 +161,18 @@ pub fn update_abi_db(abi_db_path: String, abi_folder_path: String) -> Result<Dat
 /// # Errors
 /// Returns an error if the path doesn't exist or if there are issues reading the files
 pub fn read_new_abi_folder(abi_folder_path: &str) -> Result<DataFrame, AbiReaderError> {
-    let abi_folder_path  = Path::new(abi_folder_path);
+    let abi_folder_path = Path::new(abi_folder_path);
     if !abi_folder_path.exists() {
-        return Err(AbiReaderError::InvalidPath(format!("Path does not exist: {}", abi_folder_path.display())));
+        return Err(AbiReaderError::InvalidPath(format!(
+            "Path does not exist: {}",
+            abi_folder_path.display()
+        )));
     }
 
     let combined_df = if abi_folder_path.is_dir() {
         let paths = fs::read_dir(abi_folder_path)
             .map_err(|e| AbiReaderError::InvalidPath(e.to_string()))?;
-        
+
         // Process each file and collect successful results
         let processed_frames: Vec<DataFrame> = paths
             .filter_map(|entry| {
@@ -168,29 +182,34 @@ pub fn read_new_abi_folder(abi_folder_path: &str) -> Result<DataFrame, AbiReader
                 }
                 match read_new_abi_file(path) {
                     Ok(df) => Some(df),
-                    Err(_) => None,  // Silently skip invalid files
+                    Err(_) => None, // Silently skip invalid files
                 }
             })
             .collect();
-        
+
         // Handle case where no valid files were processed
         if processed_frames.is_empty() {
-            return Ok(DataFrame::new(vec![
-                Series::new_empty("address", &DataType::Binary),
-                Series::new_empty("hash", &DataType::Binary),
-                Series::new_empty("full_signature", &DataType::String),
-                Series::new_empty("name", &DataType::String),
-                Series::new_empty("anonymous", &DataType::Boolean),
-                Series::new_empty("state_mutability", &DataType::String),
-                Series::new_empty("id", &DataType::String),
-            ])?);
+            return Ok(DataFrame::new(
+                0,
+                vec![
+                    Column::new_empty("address".into(), &DataType::Binary),
+                    Column::new_empty("hash".into(), &DataType::Binary),
+                    Column::new_empty("full_signature".into(), &DataType::String),
+                    Column::new_empty("name".into(), &DataType::String),
+                    Column::new_empty("anonymous".into(), &DataType::Boolean),
+                    Column::new_empty("state_mutability".into(), &DataType::String),
+                    Column::new_empty("id".into(), &DataType::String),
+                ],
+            )?);
         }
-        
+
         // Combine all DataFrames
         let mut combined_df = processed_frames[0].clone();
         for df in processed_frames.into_iter().skip(1) {
             // concatenate each file dataframe
-            combined_df = combined_df.vstack(&df).map_err(AbiReaderError::PolarsError)?;
+            combined_df = combined_df
+                .vstack(&df)
+                .map_err(AbiReaderError::PolarsError)?;
         }
         combined_df
     } else {
@@ -209,7 +228,7 @@ pub fn read_new_abi_folder(abi_folder_path: &str) -> Result<DataFrame, AbiReader
 /// Returns a DataFrame containing the processed ABI information
 ///
 /// # Notes
-/// The filename should be a valid contract address and needs to be a .json extension. 
+/// The filename should be a valid contract address and needs to be a .json extension.
 /// The function will skip the file if it's not a .json or couldn't be parsed into an address by the extract_address_from_path function.
 pub fn read_new_abi_file(path: PathBuf) -> Result<DataFrame, AbiReaderError> {
     let address = extract_address_from_path(&path);
@@ -220,8 +239,10 @@ pub fn read_new_abi_file(path: PathBuf) -> Result<DataFrame, AbiReaderError> {
             path
         );
 
-        let json = fs::read_to_string(&path).map_err(|e| AbiReaderError::InvalidAbiFile(e.to_string()))?;
-        let abi: JsonAbi = serde_json::from_str(&json).map_err(|e| AbiReaderError::InvalidAbiFile(e.to_string()))?;
+        let json =
+            fs::read_to_string(&path).map_err(|e| AbiReaderError::InvalidAbiFile(e.to_string()))?;
+        let abi: JsonAbi = serde_json::from_str(&json)
+            .map_err(|e| AbiReaderError::InvalidAbiFile(e.to_string()))?;
         // let a = Some(abi.events().map(|event| create_event_row(event)).collect());
         read_new_abi_json(abi, address)
     } else {
@@ -232,7 +253,7 @@ pub fn read_new_abi_file(path: PathBuf) -> Result<DataFrame, AbiReaderError> {
             path
         );
         Err(AbiReaderError::InvalidAbiFile(
-            "File is not a JSON format or filename couldn't be parsed into an address".to_string()
+            "File is not a JSON format or filename couldn't be parsed into an address".to_string(),
         ))
     }
 }
@@ -245,24 +266,28 @@ pub fn read_new_abi_file(path: PathBuf) -> Result<DataFrame, AbiReaderError> {
 ///
 /// # Returns
 /// Returns a DataFrame containing function and/or event signatures.
-/// 
+///
 /// # Notes
 /// This function gets the abi_read_mode from the config and uses it to filter the items to read.
-pub fn read_new_abi_json(abi: JsonAbi, address: Address) -> Result<DataFrame, AbiReaderError>{
+pub fn read_new_abi_json(abi: JsonAbi, address: Address) -> Result<DataFrame, AbiReaderError> {
     let abi_read_mode = get_config().abi_reader.abi_read_mode;
     // inverted logic because we want to read all items except the ones specified in the abi_read_mode
     let function_rows: Vec<AbiItemRow> = if abi_read_mode != configger::AbiReadMode::Events {
-        abi.functions().map(|function| create_function_row(function, address)).collect()
+        abi.functions()
+            .map(|function| create_function_row(function, address))
+            .collect()
     } else {
         vec![]
     };
     let event_rows: Vec<AbiItemRow> = if abi_read_mode != configger::AbiReadMode::Functions {
-        abi.events().map(|event| create_event_row(event, address)).collect()
+        abi.events()
+            .map(|event| create_event_row(event, address))
+            .collect()
     } else {
         vec![]
     };
     let abi_rows = [function_rows, event_rows].concat();
-    
+
     create_dataframe_from_rows(abi_rows)
 }
 
@@ -275,7 +300,9 @@ pub fn read_new_abi_json(abi: JsonAbi, address: Address) -> Result<DataFrame, Ab
 /// Returns Some(Address) if the filename (without extension) is a valid Ethereum address,
 /// None otherwise
 fn extract_address_from_path(path: &Path) -> Option<Address> {
-    path.extension().and_then(|s| s.to_str()).filter(|&ext| ext == "json")
+    path.extension()
+        .and_then(|s| s.to_str())
+        .filter(|&ext| ext == "json")
         .and_then(|_| path.file_stem())
         .and_then(|s| s.to_str())
         .and_then(|str| Address::from_str(str).ok())
@@ -289,9 +316,9 @@ fn extract_address_from_path(path: &Path) -> Option<Address> {
 ///
 /// # Returns
 /// Returns an AbiItemRow containing the event information
-/// 
+///
 /// # Notes
-/// The function takes the unique_key from the config and uses it to create the id. 
+/// The function takes the unique_key from the config and uses it to create the id.
 /// Later on, the id is used to filter unique entries in the database.
 fn create_event_row(event: &alloy::json_abi::Event, address: Address) -> AbiItemRow {
     let unique_key = get_config().abi_reader.unique_key;
@@ -323,9 +350,9 @@ fn create_event_row(event: &alloy::json_abi::Event, address: Address) -> AbiItem
 ///
 /// # Returns
 /// Returns an AbiItemRow containing the function information
-/// 
+///
 /// # Notes
-/// The function takes the unique_key from the config and uses it to create the id. 
+/// The function takes the unique_key from the config and uses it to create the id.
 /// Later on, the id is used to filter unique entries in the database.
 fn create_function_row(function: &alloy::json_abi::Function, address: Address) -> AbiItemRow {
     let state_mutability = match function.state_mutability {
@@ -334,7 +361,7 @@ fn create_function_row(function: &alloy::json_abi::Function, address: Address) -
         alloy::json_abi::StateMutability::NonPayable => "nonpayable".to_owned(),
         alloy::json_abi::StateMutability::Payable => "payable".to_owned(),
     };
-    
+
     let unique_key = get_config().abi_reader.unique_key;
     let mut id = function.selector().to_string();
     if unique_key.contains(&"full_signature".to_string()) {
@@ -352,7 +379,7 @@ fn create_function_row(function: &alloy::json_abi::Function, address: Address) -
         anonymous: None,
         num_indexed_args: None,
         state_mutability: Some(state_mutability),
-        id: id
+        id: id,
     };
     function_row
 }
@@ -369,17 +396,53 @@ fn create_function_row(function: &alloy::json_abi::Function, address: Address) -
 /// The output format (binary/hex) of some columns is determined by configuration
 fn create_dataframe_from_rows(rows: Vec<AbiItemRow>) -> Result<DataFrame, AbiReaderError> {
     let columns = vec![
-        Series::new("address".into(), rows.iter().map(|r| r.address.as_slice().to_vec()).collect::<Vec<Vec<u8>>>()),
-        Series::new("hash".into(), rows.iter().map(|r| r.hash.as_bytes()).collect::<Vec<Vec<u8>>>()),
-        Series::new("full_signature".into(), rows.iter().map(|r| r.full_signature.clone()).collect::<Vec<String>>()),
-        Series::new("name".into(), rows.iter().map(|r| r.name.clone()).collect::<Vec<String>>()),
-        Series::new("anonymous".into(), rows.iter().map(|r| r.anonymous).collect::<Vec<Option<bool>>>()),
-        Series::new("num_indexed_args".into(), rows.iter().map(|r| r.num_indexed_args.map(|n| n as u32)).collect::<Vec<Option<u32>>>()),
-        Series::new("state_mutability".into(), rows.iter().map(|r| r.state_mutability.clone()).collect::<Vec<Option<String>>>()),
-        Series::new("id".into(), rows.iter().map(|r| r.id.clone()).collect::<Vec<String>>()),
+        Column::new(
+            "address".into(),
+            rows.iter()
+                .map(|r| r.address.as_slice().to_vec())
+                .collect::<Vec<Vec<u8>>>(),
+        ),
+        Column::new(
+            "hash".into(),
+            rows.iter()
+                .map(|r| r.hash.as_bytes())
+                .collect::<Vec<Vec<u8>>>(),
+        ),
+        Column::new(
+            "full_signature".into(),
+            rows.iter()
+                .map(|r| r.full_signature.clone())
+                .collect::<Vec<String>>(),
+        ),
+        Column::new(
+            "name".into(),
+            rows.iter().map(|r| r.name.clone()).collect::<Vec<String>>(),
+        ),
+        Column::new(
+            "anonymous".into(),
+            rows.iter()
+                .map(|r| r.anonymous)
+                .collect::<Vec<Option<bool>>>(),
+        ),
+        Column::new(
+            "num_indexed_args".into(),
+            rows.iter()
+                .map(|r| r.num_indexed_args.map(|n| n as u32))
+                .collect::<Vec<Option<u32>>>(),
+        ),
+        Column::new(
+            "state_mutability".into(),
+            rows.iter()
+                .map(|r| r.state_mutability.clone())
+                .collect::<Vec<Option<String>>>(),
+        ),
+        Column::new(
+            "id".into(),
+            rows.iter().map(|r| r.id.clone()).collect::<Vec<String>>(),
+        ),
     ];
 
-    let df = DataFrame::new(columns).map_err(AbiReaderError::PolarsError)?;
+    let df = DataFrame::new(rows.len(), columns).map_err(AbiReaderError::PolarsError)?;
     Ok(if get_config().abi_reader.output_hex_string_encoding {
         utils::binary_columns_to_hex_string(df)?
     } else {
@@ -396,6 +459,8 @@ fn create_dataframe_from_rows(rows: Vec<AbiItemRow>) -> Result<DataFrame, AbiRea
 /// Returns a combined DataFrame with duplicate IDs removed
 fn concat_dataframes(dfs: Vec<LazyFrame>) -> Result<DataFrame, AbiReaderError> {
     let df = concat(dfs, UnionArgs::default())?;
-    let df = df.unique(Some(vec!["id".to_string()]), UniqueKeepStrategy::First).collect();
+    let df = df
+        .unique(col("id").into_selector(), UniqueKeepStrategy::First)
+        .collect();
     df.map_err(AbiReaderError::PolarsError)
 }

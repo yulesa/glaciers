@@ -12,6 +12,9 @@ readme = "crates_readme.md"
 name = "glaciers"
 path = "src/lib.rs"
 
+[features]
+python = ["pyo3"]
+
 [dependencies]
 alloy = { workspace = true }
 serde_json = { workspace = true }
@@ -23,4 +26,5 @@ thiserror = { workspace = true }
 chrono = { workspace = true }
 sysinfo = { workspace = true }
 tokio = { workspace = true }
-pyo3 = { workspace = true }
+pyo3 = { version = "0.27.0", features = ["extension-module"], optional = true }
+

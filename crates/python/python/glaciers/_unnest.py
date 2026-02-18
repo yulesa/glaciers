@@ -33,7 +33,7 @@ def unnest_event(
     """
 
     decoded_log_df = to_polars(decoded_log_df)
-    
+
     filtered_df = decoded_log_df
     if event_name is not None:
         filtered_df = filtered_df.filter(pl.col("name").str.to_lowercase() == event_name.lower())
@@ -57,7 +57,7 @@ def unnest_event(
             filtered_df = filtered_df.filter(pl.col(topic0_col).bin.encode("hex").str.to_lowercase().str.replace("0x", "") == topic0.lower().replace("0x", ""))
         else:
             raise ValueError(f"Invalid column type for topic0: {col_types[0]}")
-    
+
     unique_event = filtered_df.select(pl.col("full_signature")).unique()
     if unique_event.height > 1:
         signatures = unique_event["full_signature"].to_list()
@@ -65,7 +65,7 @@ def unnest_event(
     elif filtered_df.height == 0:
         raise ValueError("No event found after filtering with the given parameters")
     else:
-        first_row = filtered_df.select(pl.col("event_json").str.json_decode()).row(0)[0]
+        first_row = filtered_df.get_column('event_json').str.json_decode()[0]
         num_fields = len(first_row)
         value_types = []
         field_names = []
@@ -80,26 +80,26 @@ def unnest_event(
 
         for (i, type) in enumerate(value_types):
             if type == "bool":
-                filtered_df = filtered_df.with_columns(pl.col("event_values").str.json_decode().list.get(i).replace_strict({"false":False, "true":True}).cast(pl.Boolean).alias(f"{field_names[i]}"))
+                filtered_df = filtered_df.with_columns(filtered_df.get_column("event_values").str.json_decode().list.get(i).replace_strict({"false":False, "true":True}).cast(pl.Boolean).alias(f"{field_names[i]}"))
             elif "int" in type:
-                filtered_df = filtered_df.with_columns(pl.col("event_values").str.json_decode().list.get(i).cast(pl.Float64).alias(f"{field_names[i]}"))
+                filtered_df = filtered_df.with_columns(filtered_df.get_column("event_values").str.json_decode().list.get(i).cast(pl.Float64).alias(f"{field_names[i]}"))
             elif "bytes" in type:
                 if unnesting_hex_string_encoding:
-                    filtered_df = filtered_df.with_columns(pl.col("event_values").str.json_decode().list.get(i).cast(pl.String).alias(f"{field_names[i]}"))
+                    filtered_df = filtered_df.with_columns(filtered_df.get_column("event_values").str.json_decode().list.get(i).cast(pl.String).alias(f"{field_names[i]}"))
                 else:
-                    filtered_df = filtered_df.with_columns(pl.col("event_values").str.json_decode().list.get(i).cast(pl.Binary).alias(f"{field_names[i]}"))
+                    filtered_df = filtered_df.with_columns(filtered_df.get_column("event_values").str.json_decode().list.get(i).cast(pl.Binary).alias(f"{field_names[i]}"))
             elif type == "address":
                 if unnesting_hex_string_encoding:
-                    filtered_df = filtered_df.with_columns(pl.col("event_values").str.json_decode().list.get(i).cast(pl.String).alias(f"{field_names[i]}"))
+                    filtered_df = filtered_df.with_columns(filtered_df.get_column("event_values").str.json_decode().list.get(i).cast(pl.String).alias(f"{field_names[i]}"))
                 else:
-                    filtered_df = filtered_df.with_columns(pl.col("event_values").str.json_decode().list.get(i).cast(pl.Binary).alias(f"{field_names[i]}"))
+                    filtered_df = filtered_df.with_columns(filtered_df.get_column("event_values").str.json_decode().list.get(i).cast(pl.Binary).alias(f"{field_names[i]}"))
             elif type == "string":
-                filtered_df = filtered_df.with_columns(pl.col("event_values").str.json_decode().list.get(i).cast(pl.String).alias(f"{field_names[i]}"))
+                filtered_df = filtered_df.with_columns(filtered_df.get_column("event_values").str.json_decode().list.get(i).cast(pl.String).alias(f"{field_names[i]}"))
 
         return to_prefered_type(filtered_df)
 
 
-def unnest_trace(  
+def unnest_trace(
         decoded_trace_df: DataFrameType,
         function_name: str = None,
         action_to: str = None,
@@ -126,11 +126,11 @@ def unnest_trace(
             decoded_trace_df,
             function_name="transfer",
             action_to="0x1234567890123456789012345678901234567890"
-        )   
+        )
     """
 
     decoded_trace_df = to_polars(decoded_trace_df)
-    
+
     filtered_df = decoded_trace_df
     if function_name is not None:
         filtered_df = filtered_df.filter(pl.col("name").str.to_lowercase() == function_name.lower())
@@ -154,7 +154,7 @@ def unnest_trace(
             filtered_df = filtered_df.filter(pl.col(selector_col).bin.encode("hex").str.to_lowercase().str.replace("0x", "") == selector.lower().replace("0x", ""))
         else:
             raise ValueError(f"Invalid column type for selector: {col_types[0]}")
-    
+
     unique_trace = filtered_df.select(pl.col("full_signature")).unique()
     if unique_trace.height > 1:
         signatures = unique_trace["full_signature"].to_list()
@@ -164,7 +164,7 @@ def unnest_trace(
     else:
         unnesting_hex_string_encoding = toml.loads(get_config())["glaciers"]["unnesting_hex_string_encoding"]
 
-        input_first_row = filtered_df.select(pl.col("input_json").str.json_decode()).row(0)[0]
+        input_first_row = filtered_df.get_column('input_json').str.json_decode()[0]
         input_num_fields = len(input_first_row)
         input_value_types = []
         input_field_names = []
@@ -174,26 +174,26 @@ def unnest_trace(
                 input_field_names.append(input_first_row[i]["name"])
             else:
                 input_field_names.append(f"input_{i}")
-        
+
         for (i, type) in enumerate(input_value_types):
             if type == "bool":
-                filtered_df = filtered_df.with_columns(pl.col("input_values").str.json_decode().list.get(i).replace_strict({"false":False, "true":True}).cast(pl.Boolean).alias(f"{input_field_names[i]}"))
+                filtered_df = filtered_df.with_columns(filtered_df.get_column("input_values").str.json_decode().list.get(i).replace_strict({"false":False, "true":True}).cast(pl.Boolean).alias(f"{input_field_names[i]}"))
             elif "int" in type:
-                filtered_df = filtered_df.with_columns(pl.col("input_values").str.json_decode().list.get(i).cast(pl.Float64).alias(f"{input_field_names[i]}"))
+                filtered_df = filtered_df.with_columns(filtered_df.get_column("input_values").str.json_decode().list.get(i).cast(pl.Float64).alias(f"{input_field_names[i]}"))
             elif "bytes" in type:
                 if unnesting_hex_string_encoding:
-                    filtered_df = filtered_df.with_columns(pl.col("input_values").str.json_decode().list.get(i).cast(pl.String).alias(f"{input_field_names[i]}"))
+                    filtered_df = filtered_df.with_columns(filtered_df.get_column("input_values").str.json_decode().list.get(i).cast(pl.String).alias(f"{input_field_names[i]}"))
                 else:
-                    filtered_df = filtered_df.with_columns(pl.col("input_values").str.json_decode().list.get(i).cast(pl.Binary).alias(f"{input_field_names[i]}"))
-            elif type == "address": 
+                    filtered_df = filtered_df.with_columns(filtered_df.get_column("input_values").str.json_decode().list.get(i).cast(pl.Binary).alias(f"{input_field_names[i]}"))
+            elif type == "address":
                 if unnesting_hex_string_encoding:
-                    filtered_df = filtered_df.with_columns(pl.col("input_values").str.json_decode().list.get(i).cast(pl.String).alias(f"{input_field_names[i]}"))
+                    filtered_df = filtered_df.with_columns(filtered_df.get_column("input_values").str.json_decode().list.get(i).cast(pl.String).alias(f"{input_field_names[i]}"))
                 else:
-                    filtered_df = filtered_df.with_columns(pl.col("input_values").str.json_decode().list.get(i).cast(pl.Binary).alias(f"{input_field_names[i]}"))
+                    filtered_df = filtered_df.with_columns(filtered_df.get_column("input_values").str.json_decode().list.get(i).cast(pl.Binary).alias(f"{input_field_names[i]}"))
             elif type == "string":
-                filtered_df = filtered_df.with_columns(pl.col("input_values").str.json_decode().list.get(i).cast(pl.String).alias(f"{input_field_names[i]}"))
+                filtered_df = filtered_df.with_columns(filtered_df.get_column("input_values").str.json_decode().list.get(i).cast(pl.String).alias(f"{input_field_names[i]}"))
 
-        output_first_row = filtered_df.select(pl.col("output_json").str.json_decode()).row(0)[0]
+        output_first_row = filtered_df.get_column('output_json').str.json_decode()[0]
         output_num_fields = len(output_first_row)
         output_value_types = []
         output_field_names = []
@@ -203,23 +203,23 @@ def unnest_trace(
                 output_field_names.append(output_first_row[i]["name"])
             else:
                 output_field_names.append(f"output_{i}")
-        
+
         for (i, type) in enumerate(output_value_types):
             if type == "bool":
-                filtered_df = filtered_df.with_columns(pl.col("output_values").str.json_decode().list.get(i).replace_strict({"false":False, "true":True}).cast(pl.Boolean).alias(f"{output_field_names[i]}"))
+                filtered_df = filtered_df.with_columns(filtered_df.get_column("output_values").str.json_decode().list.get(i).replace_strict({"false":False, "true":True}).cast(pl.Boolean).alias(f"{output_field_names[i]}"))
             elif "int" in type:
-                filtered_df = filtered_df.with_columns(pl.col("output_values").str.json_decode().list.get(i).cast(pl.Float64).alias(f"{output_field_names[i]}"))
+                filtered_df = filtered_df.with_columns(filtered_df.get_column("output_values").str.json_decode().list.get(i).cast(pl.Float64).alias(f"{output_field_names[i]}"))
             elif "bytes" in type:
                 if unnesting_hex_string_encoding:
-                    filtered_df = filtered_df.with_columns(pl.col("output_values").str.json_decode().list.get(i).cast(pl.String).alias(f"{output_field_names[i]}"))
+                    filtered_df = filtered_df.with_columns(filtered_df.get_column("output_values").str.json_decode().list.get(i).cast(pl.String).alias(f"{output_field_names[i]}"))
                 else:
-                    filtered_df = filtered_df.with_columns(pl.col("output_values").str.json_decode().list.get(i).cast(pl.Binary).alias(f"{output_field_names[i]}"))
+                    filtered_df = filtered_df.with_columns(filtered_df.get_column("output_values").str.json_decode().list.get(i).cast(pl.Binary).alias(f"{output_field_names[i]}"))
             elif type == "address":
                 if unnesting_hex_string_encoding:
-                    filtered_df = filtered_df.with_columns(pl.col("output_values").str.json_decode().list.get(i).cast(pl.String).alias(f"{output_field_names[i]}"))
+                    filtered_df = filtered_df.with_columns(filtered_df.get_column("output_values").str.json_decode().list.get(i).cast(pl.String).alias(f"{output_field_names[i]}"))
                 else:
-                    filtered_df = filtered_df.with_columns(pl.col("output_values").str.json_decode().list.get(i).cast(pl.Binary).alias(f"{output_field_names[i]}"))
+                    filtered_df = filtered_df.with_columns(filtered_df.get_column("output_values").str.json_decode().list.get(i).cast(pl.Binary).alias(f"{output_field_names[i]}"))
             elif type == "string":
-                filtered_df = filtered_df.with_columns(pl.col("output_values").str.json_decode().list.get(i).cast(pl.String).alias(f"{output_field_names[i]}"))
-    
+                filtered_df = filtered_df.with_columns(filtered_df.get_column("output_values").str.json_decode().list.get(i).cast(pl.String).alias(f"{output_field_names[i]}"))
+
         return to_prefered_type(filtered_df)

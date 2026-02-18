@@ -1,5 +1,5 @@
 //! Log decoder module have the functions that are specific to decode logs.
-//! 
+//!
 //! This module provides functions to:
 //! - Run through a DataFrame of logs calling the UDF (User Defined Function) each line
 //! - A UDF to decode a single log line into a 3 parts string separated by ;
@@ -9,6 +9,7 @@
 use alloy::dyn_abi::{DynSolValue, EventExt};
 use alloy::json_abi::{Event, EventParam};
 use alloy::primitives::FixedBytes;
+use chrono::Local;
 use polars::prelude::*;
 use thiserror::Error;
 
@@ -42,7 +43,7 @@ struct ExtDecodedEvent {
 ///   - event_values: Array of decoded parameter values
 ///   - event_keys: Array of parameter names
 ///   - event_json: JSON string representation of the decoded event
-/// 
+///
 /// # Notes
 /// The output format (binary/hex) of some columns is determined by configuration
 pub fn polars_decode_logs(df: DataFrame) -> Result<DataFrame, DecoderError> {
@@ -50,48 +51,51 @@ pub fn polars_decode_logs(df: DataFrame) -> Result<DataFrame, DecoderError> {
 
     // using the alias to select columns that will be used in the decode_log_udf
     // as_array() is excluding the address column because it is not used in the log decoding
-    let mut alias_exprs: Vec<Expr> = input_schema_alias.as_array()
+    let mut alias_exprs: Vec<Expr> = input_schema_alias
+        .as_array()
         .iter()
         .map(|alias| col(alias.as_str()).alias(alias.as_str()))
         .collect();
     alias_exprs.push(col("full_signature").alias("full_signature"));
-    
+
     // as_struct() passes the selected columns to the decode_log_udf and returns a column decoded_log of type String
     // decoded_log column is then split into 3 columns separated by the ; character
     let decoded_chuck_df = df
         .lazy()
         //apply decode_log_udf, creating a decoded_log column
         .with_columns([as_struct(alias_exprs)
-        .map(decode_log_udf, GetOutput::from_type(DataType::String))
-        .alias("decoded_log")])
+            .map(decode_log_udf, |_schema: &Schema, input_field: &Field| {
+                Ok(Field::new(input_field.name().clone(), DataType::String))
+            })
+            .alias("decoded_log")])
         //split the udf output column (decoded_log) into 3 columns
         .with_columns([col("decoded_log")
             .str()
             .split(lit(";"))
             .list()
-            .get(lit(0))
+            .get(lit(0), true)
             .alias("event_values")])
         .with_columns([col("decoded_log")
             .str()
             .split(lit(";"))
             .list()
-            .get(lit(1))
+            .get(lit(1), true)
             .alias("event_keys")])
         .with_columns([col("decoded_log")
             .str()
             .split(lit(";"))
             .list()
-            .get(lit(2))
+            .get(lit(2), true)
             .alias("event_json")])
         // Remove the original decoded_log column
-        .select([col("*").exclude(["decoded_log"])])
+        .select([(all() - by_name(["decoded_log"], true, false)).as_expr()])
         .collect()?;
 
     Ok(if get_config().decoder.output_hex_string_encoding {
         utils::binary_columns_to_hex_string(decoded_chuck_df)?
     } else {
         decoded_chuck_df
-    })    
+    })
 }
 
 /// UDF (User Defined Function) for decoding individual log entries.
@@ -102,29 +106,44 @@ pub fn polars_decode_logs(df: DataFrame) -> Result<DataFrame, DecoderError> {
 /// # Returns
 /// If successful, a Series containing decoded log in a string format, separated by ;
 ///   "event_values";"event_keys";"event_json"
-fn decode_log_udf(s: Series) -> PolarsResult<Option<Series>> {
+fn decode_log_udf(s: Column) -> PolarsResult<Column> {
     let series_struct_array: &StructChunked = s.struct_()?;
-    let fields = series_struct_array.fields();
+    let fields = series_struct_array.fields_as_series();
     //extract topics, data and signature from the df struct arrays
     let topics_data_sig = extract_log_fields(&fields)?;
 
     //iterate through each row value, calling the decode function and mapping it to a 3 parts result string separated by ;
+    let mut decode_ok_count = 0usize;
+    let mut decode_err_count = 0usize;
     let udf_output: StringChunked = topics_data_sig
         .into_iter()
         .map(|(topics, data, sig)| {
-            decode(sig, topics, data)
-                .map(|event| {
-                    format!(
+            let result = decode(sig, topics, data);
+            match result {
+                Ok(event) => {
+                    decode_ok_count += 1;
+                    Some(format!(
                         "{:?}; {:?}; {}",
                         event.event_values, event.event_keys, event.event_json
-                    )
-                })
-                // Ignore decoding errors. In the future, we can have a param to log errors or store them in the table.
-                .ok()
+                    ))
+                }
+                Err(_e) => {
+                    decode_err_count += 1;
+                    None
+                }
+            }
         })
         .collect();
+    if decode_err_count > 0 {
+        println!(
+            "[{}] Log decoding finished with {} errors out of {} rows.",
+            Local::now().format("%Y-%m-%d %H:%M:%S"),
+            decode_err_count,
+            decode_ok_count + decode_err_count
+        );
+    }
 
-    Ok(Some(udf_output.into_series()))
+    Ok(udf_output.into_column())
 }
 
 /// Extracts each log field necessary for decoding from an array of Series.
@@ -158,12 +177,18 @@ fn extract_log_fields(fields: &[Series]) -> PolarsResult<Vec<(Vec<FixedBytes<32>
         .zip(fields_sig.into_iter())
         .map(
             |(((((opt_topic0, opt_topic1), opt_topic2), opt_topic3), opt_data), opt_sig)| {
-                let topics = vec![
-                    FixedBytes::from_slice(opt_topic0.unwrap_or(&zero_filled_topic)),
-                    FixedBytes::from_slice(opt_topic1.unwrap_or(&zero_filled_topic)),
-                    FixedBytes::from_slice(opt_topic2.unwrap_or(&zero_filled_topic)),
-                    FixedBytes::from_slice(opt_topic3.unwrap_or(&zero_filled_topic)),
-                ];
+                let mut topics = vec![FixedBytes::from_slice(
+                    opt_topic0.unwrap_or(&zero_filled_topic),
+                )];
+                if let Some(t) = opt_topic1 {
+                    topics.push(FixedBytes::from_slice(t));
+                }
+                if let Some(t) = opt_topic2 {
+                    topics.push(FixedBytes::from_slice(t));
+                }
+                if let Some(t) = opt_topic3 {
+                    topics.push(FixedBytes::from_slice(t));
+                }
                 let data = opt_data.unwrap_or(&[]);
                 let sig = opt_sig.unwrap_or("");
 
@@ -191,11 +216,12 @@ fn decode(
     data: &[u8],
 ) -> Result<ExtDecodedEvent, LogDecoderError> {
     //parse the full signature to create the event object
-    let event_obj = Event::parse(full_signature)
-        .map_err(|e| LogDecoderError::DecodingError(e.to_string()))?;
+    let event_obj =
+        Event::parse(full_signature).map_err(|e| LogDecoderError::DecodingError(e.to_string()))?;
 
     //decode the event calling the alloy decode_log_parts function
-    let decoded_event = event_obj.decode_log_parts(topics, data, false)
+    let decoded_event = event_obj
+        .decode_log_parts(topics, data)
         .map_err(|e| LogDecoderError::DecodingError(e.to_string()))?;
 
     // Store the indexed values in a vector
@@ -205,9 +231,19 @@ fn decode(
 
     let structured_event = map_event_sig_and_values(&event_obj, &event_values)?;
     let event_keys: Vec<String> = structured_event.iter().map(|p| p.name.clone()).collect();
-    let event_json = serde_json::to_string(&structured_event).unwrap_or_else(|_| "[]".to_string()).trim().to_string();
+    let event_json = serde_json::to_string(&structured_event)
+        .unwrap_or_else(|_| "[]".to_string())
+        .trim()
+        .to_string();
     // Convert the event_values to a vector of strings
-    let event_values: Vec<String> = event_values.iter().map(|d| utils::StrDynSolValue::from(d.clone()).to_string().unwrap_or("None".to_string())).collect();
+    let event_values: Vec<String> = event_values
+        .iter()
+        .map(|d| {
+            utils::StrDynSolValue::from(d.clone())
+                .to_string()
+                .unwrap_or("None".to_string())
+        })
+        .collect();
 
     let extended_decoded_event = ExtDecodedEvent {
         event_values,
@@ -219,7 +255,7 @@ fn decode(
 }
 
 /// Maps event signature parameters names to their corresponding decoded values.
-/// This function is necessary because the source of param values (output of decode_log_parts) 
+/// This function is necessary because the source of param values (output of decode_log_parts)
 /// is different from the source of param names (Signature - Event Object), and we want to keep them in the same order.
 ///
 /// # Arguments
@@ -240,10 +276,11 @@ fn map_event_sig_and_values(
     }
 
     // Partition event inputs into indexed and non-indexed so it has the same order as the event_values
-    let (event_indexed_inputs, event_data_inputs): (Vec<EventParam>, Vec<EventParam>) = 
-        event_sig.inputs.iter()
-            .cloned() // Clone to convert &EventParam to EventParam
-            .partition(|e| e.indexed);
+    let (event_indexed_inputs, event_data_inputs): (Vec<EventParam>, Vec<EventParam>) = event_sig
+        .inputs
+        .iter()
+        .cloned() // Clone to convert &EventParam to EventParam
+        .partition(|e| e.indexed);
 
     // Combine indexed inputs followed by detail inputs
     let mut event_inputs = Vec::with_capacity(event_indexed_inputs.len() + event_data_inputs.len());

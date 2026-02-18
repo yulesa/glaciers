@@ -1,4 +1,4 @@
-name: publish-python 
+name: publish-python
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -22,7 +22,7 @@ jobs:
           - runner: ubuntu-latest
             target: aarch64
             python-architecture: arm64
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -33,7 +33,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --out dist  --interpreter python${{ matrix.python-version }} --zig --manifest-path ./crates/python/Cargo.toml 
+          args: --release --out dist  --interpreter python${{ matrix.python-version }} --zig --manifest-path ./crates/python/Cargo.toml
           manylinux: auto
           before-script-linux: sudo apt-get install -y capnproto libcapnp-dev
       - name: Upload wheels
@@ -66,7 +66,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --interpreter python${{ matrix.python-version }} --manifest-path ./crates/python/Cargo.toml 
+          args: --release --out dist --interpreter python${{ matrix.python-version }} --manifest-path ./crates/python/Cargo.toml
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
@@ -81,7 +81,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           command: sdist
-          args: --out dist --manifest-path ./crates/python/Cargo.toml 
+          args: --out dist --manifest-path ./crates/python/Cargo.toml
       - name: Upload sdist
         uses: actions/upload-artifact@v4
         with:

@@ -47,7 +47,7 @@ print(f"\nFirst 5 rows of updatedABIs DataFrame:\n{abis_df.head()}\n\n")
 ######## Test read_new_abi_folder ########
 # Reads ABIs in a folder
 #
-# This function loads ABI files from a folder and creates a DataFrame containing functions 
+# This function loads ABI files from a folder and creates a DataFrame containing functions
 # and events itens (according to the configs) found in the ABI files. It doesn't save them in a DB file.
 #
 # # Arguments
@@ -65,7 +65,7 @@ print(f"\nABIs DataFrame from folder:\n{folder_df.head()}\n\n")
 ######## Test read_new_abi_file ########
 # Reads a single ABI file
 #
-# This function loads ABI definitions from a file and creates a DataFrame containing functions 
+# This function loads ABI definitions from a file and creates a DataFrame containing functions
 # and events itens (according to the configs) found in the ABI file.
 #
 # # Arguments
@@ -76,7 +76,7 @@ print(f"\nABIs DataFrame from folder:\n{folder_df.head()}\n\n")
 #
 # # Errors
 # Returns a `PyValueError` if there are issues reading or processing the ABI
-abi_file = os.path.join(abi_folder_path, os.listdir(abi_folder_path)[0])  # Get first ABI file
+abi_file = os.path.join(abi_folder_path, [i for i in os.listdir(abi_folder_path) if "skip" not in i][0])  # Get first ABI file
 file_df = gl.read_new_abi_file(path=abi_file)
 print(f"\nABIs DataFrame from single file:\n{file_df.head()}\n\n")
 
@@ -133,7 +133,7 @@ with open(abi_file, 'r') as f:
 ######## Test decode_folder ########
 # Decode a folder of logs/traces.
 #
-# This function takes a logs folder path and a abi parquet file path. It iterate through 
+# This function takes a logs folder path and a abi parquet file path. It iterate through
 # logs files, decode, and save them into decoded logs' files.
 #
 # # Arguments

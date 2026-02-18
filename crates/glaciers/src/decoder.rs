@@ -1,5 +1,5 @@
 //! Module for the high level processing and decoding blockchain data.
-//! 
+//!
 //! This module provides functionality to:
 //! - Decode a folder of logs/traces
 //! - Decode a single log/trace file
@@ -17,10 +17,10 @@ use tokio::sync::{mpsc, Mutex, Semaphore};
 use tokio::task;
 
 use crate::configger::{get_config, DecoderAlgorithm};
-use crate::matcher;
-use crate::utils;
 use crate::log_decoder;
+use crate::matcher;
 use crate::trace_decoder;
+use crate::utils;
 
 /// Error types that can occur during decoding operations
 #[derive(Error, Debug)]
@@ -34,11 +34,11 @@ pub enum DecoderError {
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
     #[error("Join error: {0}")]
-    JoinError(#[from] tokio::task::JoinError)
+    JoinError(#[from] tokio::task::JoinError),
 }
 
 /// Represents a structured parameter from decoded data
-/// 
+///
 /// Contains the name, position, type and value of a decoded parameter
 /// This is each item of event_json (logs) or input_json/output_json (traces)
 #[derive(Debug, Serialize)]
@@ -70,8 +70,8 @@ pub enum DecoderType {
 /// # Returns
 /// * `Ok(())` if all files were processed successfully. Succeful return is empty, since multiple files are decoded in parallel.
 /// * `Err(DecoderError)` if any file fails to process
-/// 
-/// 
+///
+///
 /// # Notes
 /// This function gets the max_concurrent_files_decoding from the config and uses it
 /// to limit the number of concurrent files that can be decoded at the same time.
@@ -79,7 +79,7 @@ pub enum DecoderType {
 /// # Example
 /// ```no_run
 /// use glaciers::decoder::{decode_folder, DecoderType};
-/// 
+///
 /// #[tokio::main]
 /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///     decode_folder(
@@ -95,7 +95,6 @@ pub async fn decode_folder(
     abi_db_path: String,
     decoder_type: DecoderType,
 ) -> Result<(), DecoderError> {
-
     // Collect files' paths from folder_path
     let files: Vec<PathBuf> = fs::read_dir(folder_path)?
         .filter_map(|entry| entry.ok())
@@ -103,7 +102,9 @@ pub async fn decode_folder(
         .collect();
 
     // Create a semaphore with MAX_CONCURRENT_FILES_DECODING permits
-    let semaphore = Arc::new(Semaphore::new(get_config().decoder.max_concurrent_files_decoding));
+    let semaphore = Arc::new(Semaphore::new(
+        get_config().decoder.max_concurrent_files_decoding,
+    ));
     // Create a vector to hold our join handles
     let mut handles = Vec::new();
 
@@ -111,7 +112,7 @@ pub async fn decode_folder(
     for file_path in files {
         // skip PathBuf belonging to folders
         if file_path.is_dir() {
-            continue
+            continue;
         }
         // Clone the DataFrame and semafore for each task
         let abi_db_path = abi_db_path.clone();
@@ -143,7 +144,7 @@ pub async fn decode_folder(
 /// Decodes a single file using the specified ABI database
 /// Decoded file is saved in a "decoded" folder, in the parent folder of the raw data.
 /// The file name is the same as the raw file name, but with the "logs" or "traces" replaced with "decoded_logs" or "decoded_traces".
-/// 
+///
 /// # Arguments
 /// * `file_path` - Path to file to decode
 /// * `abi_db_path` - Path to ABI database file
@@ -173,7 +174,7 @@ pub async fn decode_file(
         .unwrap()
         .to_string_lossy()
         .into_owned();
-    
+
     if !file_folder_path.is_empty() {
         file_folder_path = file_folder_path + "/";
     }
@@ -195,7 +196,7 @@ pub async fn decode_file(
             } else {
                 format!("decoded_traces_{}", file_name)
             }
-        )
+        ),
     };
 
     println!(
@@ -221,9 +222,9 @@ pub async fn decode_file(
         fs::create_dir_all(parent.to_string_lossy().into_owned())?;
     }
 
-    let save_path= save_path.with_extension(get_config().decoder.output_file_format);
+    let save_path = save_path.with_extension(get_config().decoder.output_file_format);
     utils::write_df_file(&mut decoded_df, &save_path)?;
-    
+
     println!(
         "[{}] Saving decoded to: {:?}",
         Local::now().format("%Y-%m-%d %H:%M:%S"),
@@ -264,7 +265,7 @@ pub async fn decode_df(
 /// # Returns
 /// * `Ok(DataFrame)` containing decoded data
 /// * `Err(DecoderError)` if decoding fails
-/// 
+///
 /// # Notes
 /// The function gets the matching algorithm from the config and uses it to join the logs/traces with ABI itens.
 pub async fn decode_df_with_abi_df(
@@ -279,12 +280,12 @@ pub async fn decode_df_with_abi_df(
     let matched_df = match decoder_type {
         DecoderType::Log => match get_config().decoder.algorithm {
             DecoderAlgorithm::HashAddress => matcher::match_logs_by_topic0_address(df, abi_df)?,
-            DecoderAlgorithm::Hash => matcher::match_logs_by_topic0(df, abi_df)?
+            DecoderAlgorithm::Hash => matcher::match_logs_by_topic0(df, abi_df)?,
         },
         DecoderType::Trace => match get_config().decoder.algorithm {
             DecoderAlgorithm::HashAddress => matcher::match_traces_by_4bytes_address(df, abi_df)?,
-            DecoderAlgorithm::Hash => matcher::match_traces_by_4bytes(df, abi_df)?
-        }
+            DecoderAlgorithm::Hash => matcher::match_traces_by_4bytes(df, abi_df)?,
+        },
     };
 
     // Split logs files in chunk, decode logs, collected and union results and save in the decoded folder
@@ -300,22 +301,24 @@ pub async fn decode_df_with_abi_df(
 /// # Returns
 /// * `Ok(DataFrame)` containing all decoded chunks combined
 /// * `Err(DecoderError)` if decoding fails
-/// 
+///
 /// # Notes
 /// The function gets the decoded_chunk_size from the config and uses it to split the DataFrame in chunks.
-/// It also gets the max_chunk_threads_per_file from the config and uses it to limit the number 
+/// It also gets the max_chunk_threads_per_file from the config and uses it to limit the number
 /// of parallel threads that can be used to decode each chunk.
 /// Total number of threads can be a max of max_chunk_threads_per_file * max_concurrent_files_decoding.
 async fn decode(df: DataFrame, decoder_type: DecoderType) -> Result<DataFrame, DecoderError> {
     // Create a semaphore with MAX_THREAD_NUMBER permits
-    let semaphore = Arc::new(Semaphore::new(get_config().decoder.max_chunk_threads_per_file));
+    let semaphore = Arc::new(Semaphore::new(
+        get_config().decoder.max_chunk_threads_per_file,
+    ));
     // Create a channel to communicate tasks results
     let (tx, mut rx) = mpsc::channel(10);
     // Shared vector to collect DataFrame chunks
     let collected_dfs = Arc::new(Mutex::new(Vec::new()));
     // Vector to hold our tasks handles
     let mut handles = Vec::new();
-    
+
     // Split the DataFrame in chunks and spawn a task for each chunk
     let total_height = df.height();
     let mut i = 0;
@@ -328,38 +331,40 @@ async fn decode(df: DataFrame, decoder_type: DecoderType) -> Result<DataFrame, D
         let collected_dfs_clone = collected_dfs.clone();
         let decoder_type_clone = decoder_type.clone();
         let handle = task::spawn(async move {
-
             let _permit = sem_clone.acquire().await;
             //Use polars to iterate through each row and decode, communicate through channel the result.
             let decoded_chunk = match decoder_type_clone {
                 DecoderType::Log => log_decoder::polars_decode_logs(chunk_df),
-                DecoderType::Trace => trace_decoder::polars_decode_traces(chunk_df)
+                DecoderType::Trace => trace_decoder::polars_decode_traces(chunk_df),
             };
             match decoded_chunk {
                 Ok(decoded_chunk) => {
                     // Acquire lock before modifying shared state
                     let mut dfs = collected_dfs_clone.lock().await;
-                        dfs.push(decoded_chunk);
+                    dfs.push(decoded_chunk);
 
-                        tx_clone
-                            .send(Ok(()))
-                            .await
-                            .expect("Failed to send result. Main thread may have been dropped");
+                    tx_clone
+                        .send(Ok(()))
+                        .await
+                        .expect("Failed to send result. Main thread may have been dropped");
                 }
                 Err(e) => {
-                    tx_clone.send(Err(e)).await.expect("Failed. polars_decode_logs returned an error");
+                    tx_clone
+                        .send(Err(e))
+                        .await
+                        .expect("Failed. polars_decode_logs returned an error");
                 }
             }
             // Permit is automatically released when _permit goes out of scope
         });
-        
+
         handles.push(handle);
         i = end;
     }
-    
+
     // Drop the original sender to allow rx to complete
     drop(tx);
-    
+
     // Collect all results
     while let Some(result) = rx.recv().await {
         match result {
@@ -367,14 +372,14 @@ async fn decode(df: DataFrame, decoder_type: DecoderType) -> Result<DataFrame, D
             Err(e) => return Err(e),
         }
     }
-        
+
     // Wait for all spawned tasks to complete
     for handle in handles {
         handle.await?;
     }
-    
+
     let collected_dfs = collected_dfs.lock().await.clone();
-    
+
     // Concatenate and save the final DataFrame
     union_dataframes(collected_dfs).await
 }
